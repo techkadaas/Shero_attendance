@@ -13,14 +13,23 @@ const router = Router();
 
 router.post('/login', async (req: Request, res: Response) => {
   try {
-    const { email, password, latitude, longitude } = req.body;
-    const user = await users().findOne({ email });
+    const { email, identifier, password } = req.body;
+    const loginInput = (email || identifier || '').trim();
+    if (!loginInput || !password) {
+      return res.status(400).json({ error: 'Email/Employee ID and password are required' });
+    }
+    const user = await users().findOne({
+      $or: [
+        { email: { $regex: new RegExp(`^${loginInput}$`, 'i') } },
+        { employeeId: { $regex: new RegExp(`^${loginInput}$`, 'i') } },
+      ],
+    });
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid credentials. Please check your Email/Employee ID.' });
     }
     const validPassword = await bcrypt.compare(password, user.passwordHash);
     if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid password. Please try again.' });
     }
 
     const workMode = user.workMode || 'WFO';

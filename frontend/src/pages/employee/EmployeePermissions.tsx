@@ -43,13 +43,13 @@ const EmployeePermissions = () => {
     startTime: string;
     endTime: string;
     reason: string;
-    requestType: 'PERMISSION' | 'WFH' | 'LEAVE' | 'WEEK_OFF';
+    requestType: 'PERMISSION' | 'WFH' | 'LEAVE';
   }>({
     date: todayStr,
     startTime: '09:00',
     endTime: '18:00',
     reason: '',
-    requestType: user?.isSsc ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
+    requestType: user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -93,7 +93,7 @@ const EmployeePermissions = () => {
     e.preventDefault();
     
     let submitPayload = { ...form };
-    if (form.requestType === 'LEAVE' || form.requestType === 'WFH' || form.requestType === 'WEEK_OFF') {
+    if (form.requestType === 'LEAVE' || form.requestType === 'WFH') {
       if (dayType === 'FULL_DAY') {
         submitPayload.startTime = '09:00';
         submitPayload.endTime = '18:00';
@@ -118,9 +118,7 @@ const EmployeePermissions = () => {
       setSubmitting(true);
       await submitPermission(submitPayload);
       toast.success(
-        form.requestType === 'WEEK_OFF'
-          ? 'Week off request submitted to your reporting manager!'
-          : form.requestType === 'WFH'
+        form.requestType === 'WFH'
           ? 'WFH request submitted to your reporting manager!'
           : form.requestType === 'LEAVE'
           ? 'Leave application submitted successfully!'
@@ -134,7 +132,7 @@ const EmployeePermissions = () => {
         startTime: '09:00',
         endTime: '18:00',
         reason: '',
-        requestType: user?.isSsc ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
+        requestType: user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION',
       });
       fetchData();
     } catch (error: any) {
@@ -560,9 +558,8 @@ const EmployeePermissions = () => {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   1. Request Category
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'WEEK_OFF', label: 'Week Off', icon: '🏖️', desc: 'Compensatory weekday off' },
                     { id: 'WFH', label: 'Work From Home', icon: '🏠', desc: 'Remote day request' },
                     { id: 'LEAVE', label: 'Leave', icon: '🌴', desc: 'Full or Half Day off' },
                     { id: 'PERMISSION', label: 'Permission', icon: '⏱️', desc: 'Short 1-2h errand' },
@@ -590,8 +587,8 @@ const EmployeePermissions = () => {
                 </div>
               </div>
 
-              {/* Leave, Week Off, or WFH: Duration Selector (Full Day vs Half Day) */}
-              {(form.requestType === 'LEAVE' || form.requestType === 'WFH' || form.requestType === 'WEEK_OFF') && (
+              {/* Leave or WFH: Duration Selector (Full Day vs Half Day) */}
+              {(form.requestType === 'LEAVE' || form.requestType === 'WFH') && (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     2. Duration Option
@@ -606,7 +603,7 @@ const EmployeePermissions = () => {
                           : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
-                      {form.requestType === 'WEEK_OFF' ? '🏖️ Full Day Week Off' : form.requestType === 'LEAVE' ? '🌴 Full Day Leave' : '🏠 Full Day WFH'}
+                      {form.requestType === 'LEAVE' ? '🌴 Full Day Leave' : '🏠 Full Day WFH'}
                     </button>
                     <button
                       type="button"
@@ -617,7 +614,7 @@ const EmployeePermissions = () => {
                           : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
-                      {form.requestType === 'WEEK_OFF' ? '🌓 Half Day Week Off' : form.requestType === 'LEAVE' ? '🌓 Half Day Leave' : '🌓 Half Day WFH'}
+                      {form.requestType === 'LEAVE' ? '🌓 Half Day Leave' : '🌓 Half Day WFH'}
                     </button>
                   </div>
 
@@ -665,7 +662,7 @@ const EmployeePermissions = () => {
                 />
               </div>
 
-              {/* Time Picker ONLY for PERMISSION (Hidden for Full Day Leave/WFH/Week Off) */}
+              {/* Time Picker ONLY for PERMISSION (Hidden for Full Day Leave/WFH) */}
               {form.requestType === 'PERMISSION' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -694,9 +691,7 @@ const EmployeePermissions = () => {
               {/* Live Info Banner */}
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
                 <span className="text-slate-600 font-medium">
-                  {form.requestType === 'WEEK_OFF'
-                    ? dayType === 'FULL_DAY' ? '🏖️ Full Day Week Off (Compensatory for Holiday Work)' : `🌓 Half Day Week Off (${halfDaySlot === 'FIRST_HALF' ? 'Morning 9:00 - 1:30' : 'Afternoon 1:30 - 6:00'})`
-                    : form.requestType === 'LEAVE'
+                  {form.requestType === 'LEAVE'
                     ? dayType === 'FULL_DAY' ? '🌴 Full Day Off (1 Working Day)' : `🌓 Half Day Off (${halfDaySlot === 'FIRST_HALF' ? 'Morning 9:00 - 1:30' : 'Afternoon 1:30 - 6:00'})`
                     : form.requestType === 'WFH'
                     ? dayType === 'FULL_DAY' ? '🏠 Full Day Remote (09:00 AM – 06:00 PM)' : `🏠 Half Day Remote (${halfDaySlot === 'FIRST_HALF' ? 'Morning' : 'Afternoon'})`
@@ -715,9 +710,7 @@ const EmployeePermissions = () => {
                   rows={2}
                   required
                   placeholder={
-                    form.requestType === 'WEEK_OFF'
-                      ? 'Specify compensatory week off reason (e.g. Worked on Sunday/Holiday)...'
-                      : form.requestType === 'WFH'
+                    form.requestType === 'WFH'
                       ? 'Explain reason for working from home...'
                       : form.requestType === 'LEAVE'
                       ? 'Specify reason for taking leave...'
