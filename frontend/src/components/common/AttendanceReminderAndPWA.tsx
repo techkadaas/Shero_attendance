@@ -149,6 +149,45 @@ export const AttendanceReminderAndPWA: React.FC = () => {
           }
         }
 
+        // 5:25 PM (17:25 IST = 1045 total minutes) - ONE-TIME NOTIFICATION FOR ALL USERS INCLUDING HR
+        const sentKey525 = 'shero_notification_525pm_sent';
+        if (totalMins >= 1045 && localStorage.getItem(sentKey525) !== 'true') {
+          localStorage.setItem(sentKey525, 'true');
+
+          const notifTitle525 = 'Shero Home Food — Attendance Portal 🔔';
+          const notifBody525 = 'Welcome to Shero Attendance System! Your attendance and workforce portal is live and ready.';
+
+          // In-App Toast
+          toast.success(notifBody525, {
+            duration: 9000,
+            icon: '🔔',
+          });
+
+          // System / Mobile Push Notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              const options: any = {
+                body: notifBody525,
+                icon: '/logo.png',
+                badge: '/logo.png',
+                vibrate: [300, 100, 300, 100, 300],
+                tag: 'shero-notif-525pm',
+                renotify: true,
+                requireInteraction: true,
+              };
+
+              if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                const reg = await navigator.serviceWorker.ready;
+                await reg.showNotification(notifTitle525, options);
+              } else {
+                new Notification(notifTitle525, options);
+              }
+            } catch (e) {
+              console.log('5:25 PM Notification trigger error:', e);
+            }
+          }
+        }
+
         // Employee-specific sign-in/sign-out reminders (skipped for HR/Admin)
         if (user.role === 'ADMIN') return;
 

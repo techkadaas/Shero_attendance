@@ -24,18 +24,35 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const cached = localStorage.getItem('shero_user');
+      const token = localStorage.getItem('token');
+      return token && cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const initAuth = async () => {
-      if (localStorage.getItem('token')) {
+      const token = localStorage.getItem('token');
+      if (token) {
         try {
           const userData = await getCurrentUser();
           setUser(userData);
-        } catch (error) {
-          console.error("Auth init failed", error);
+          localStorage.setItem('shero_user', JSON.stringify(userData));
+        } catch (error: any) {
+          console.error("Auth init verify:", error);
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('shero_user');
+            setUser(null);
+          }
         }
+      } else {
+        setUser(null);
       }
       setLoading(false);
     };
@@ -45,11 +62,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string, location?: { latitude?: number; longitude?: number }) => {
     const data = await loginService(email, password, location);
     setUser(data.user);
+    localStorage.setItem('shero_user', JSON.stringify(data.user));
     return data;
   };
 
   const logout = () => {
     logoutService();
+    localStorage.removeItem('shero_user');
     setUser(null);
   };
 
