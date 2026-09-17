@@ -310,7 +310,96 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// --- Admin assigns/updates reporting manager for an employee ---
+// --- Admin updates an employee (Full details: name, email, employeeId, password, status, salary, manager) ---
+router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = new ObjectId(String(req.params.id));
+    const {
+      name,
+      email,
+      password,
+      employeeId,
+      status,
+      reportingManagerId,
+      basicSalary,
+      grossSalary,
+      pfApplicable,
+      esiApplicable,
+      otherDeductions,
+    } = req.body as any;
+
+    const existingUser = await users().findOne({ _id: id });
+    if (!existingUser) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    const updateFields: any = {};
+
+    if (name !== undefined) updateFields.name = String(name).trim();
+
+    if (email !== undefined && email !== existingUser.email) {
+      const emailConflict = await users().findOne({ email: String(email).trim(), _id: { $ne: id } });
+      if (emailConflict) {
+        return res.status(409).json({ error: 'Another user already has this email address' });
+      }
+      updateFields.email = String(email).trim();
+    }
+
+    const oldEmployeeId = existingUser.employeeId;
+    if (employeeId !== undefined && employeeId !== oldEmployeeId) {
+      const trimmedEmpId = String(employeeId).trim();
+      const empIdConflict = await users().findOne({ employeeId: trimmedEmpId, _id: { $ne: id } });
+      if (empIdConflict) {
+        return res.status(409).json({ error: 'Another user already has this Employee ID' });
+      }
+      updateFields.employeeId = trimmedEmpId;
+    }
+
+    // Update password if provided
+    if (password && String(password).trim().length > 0) {
+      updateFields.passwordHash = await bcrypt.hash(String(password).trim(), 10);
+    }
+
+    if (status !== undefined) {
+      updateFields.status = status;
+    }
+
+    if (reportingManagerId !== undefined) {
+      if (reportingManagerId && reportingManagerId.toString() === req.params.id) {
+        return res.status(400).json({ error: 'An employee cannot be their own reporting manager' });
+      }
+      updateFields.reportingManagerId = reportingManagerId ? reportingManagerId.toString() : null;
+    }
+
+    if (basicSalary !== undefined) updateFields.basicSalary = Number(basicSalary) || 0;
+    if (grossSalary !== undefined) updateFields.grossSalary = Number(grossSalary) || 0;
+    if (pfApplicable !== undefined) updateFields.pfApplicable = Boolean(pfApplicable);
+    if (esiApplicable !== undefined) updateFields.esiApplicable = Boolean(esiApplicable);
+    if (otherDeductions !== undefined) updateFields.otherDeductions = Number(otherDeductions) || 0;
+
+    await users().updateOne({ _id: id }, { $set: updateFields });
+
+    // If employeeId changed, cascade update existing attendance and permission records
+    if (updateFields.employeeId && updateFields.employeeId !== oldEmployeeId) {
+      const newEmpId = updateFields.employeeId;
+      await attendances().updateMany({ employeeId: oldEmployeeId }, { $set: { employeeId: newEmpId } });
+      await attendanceEvents().updateMany({ employeeId: oldEmployeeId }, { $set: { employeeId: newEmpId } });
+      await workSessions().updateMany({ employeeId: oldEmployeeId }, { $set: { employeeId: newEmpId } });
+      await permissions().updateMany({ employeeId: oldEmployeeId }, { $set: { employeeId: newEmpId } });
+      // Update permissions where this user was the assigned manager
+      await permissions().updateMany(
+        { 'managerInfo.employeeId': oldEmployeeId },
+        { $set: { 'managerInfo.employeeId': newEmpId } }
+      );
+    }
+
+    res.json({ message: 'Employee details updated successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update employee' });
+  }
+});
+
 router.put('/employees/:id/manager', async (req: AuthRequest, res: Response) => {
   try {
     const id = new ObjectId(String(req.params.id));
