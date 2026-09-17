@@ -41,6 +41,7 @@ const AdminSettings = () => {
     officeStartTime: '09:00',
     officeEndTime: '18:00',
     graceMinutes: 15,
+    workWeekPattern: '6_DAYS',
     officeLocation: {
       latitude: 13.0827,
       longitude: 80.2707,
@@ -162,6 +163,7 @@ const AdminSettings = () => {
         officeStartTime: res.data.officeStartTime || '09:00',
         officeEndTime: res.data.officeEndTime || '18:00',
         graceMinutes: res.data.graceMinutes ?? 15,
+        workWeekPattern: res.data.workWeekPattern || '6_DAYS',
         officeLocation: {
           latitude: res.data.officeLocation?.latitude ?? 13.0827,
           longitude: res.data.officeLocation?.longitude ?? 80.2707,
@@ -602,6 +604,74 @@ const AdminSettings = () => {
             </div>
           </div>
 
+        </div>
+
+        {/* Work Week Schedule & Working Days Policy */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5 hover:shadow-md transition-shadow">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Working Days & Weekly Off Policy</h3>
+                <p className="text-xs text-slate-500">Defines standard monthly working days for salary and payroll calculations (excluding holidays)</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200 self-start sm:self-auto">
+              Payroll Base
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            <button
+              type="button"
+              onClick={() => setSettings({ ...settings, workWeekPattern: '6_DAYS' })}
+              className={`p-4 rounded-2xl border text-left transition-all ${
+                settings.workWeekPattern === '6_DAYS'
+                  ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-xs font-bold text-slate-900">6-Day Working Week</span>
+                {settings.workWeekPattern === '6_DAYS' && <span className="w-2 h-2 rounded-full bg-teal-600" />}
+              </div>
+              <p className="text-[11px] text-slate-500">Monday to Saturday duty (Sundays are off). Standard company schedule.</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSettings({ ...settings, workWeekPattern: '5_DAYS' })}
+              className={`p-4 rounded-2xl border text-left transition-all ${
+                settings.workWeekPattern === '5_DAYS'
+                  ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-xs font-bold text-slate-900">5-Day Working Week</span>
+                {settings.workWeekPattern === '5_DAYS' && <span className="w-2 h-2 rounded-full bg-teal-600" />}
+              </div>
+              <p className="text-[11px] text-slate-500">Monday to Friday duty (Saturdays & Sundays are off).</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSettings({ ...settings, workWeekPattern: 'ALTERNATE_SATURDAYS' })}
+              className={`p-4 rounded-2xl border text-left transition-all ${
+                settings.workWeekPattern === 'ALTERNATE_SATURDAYS'
+                  ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-xs font-bold text-slate-900">Alternate Saturdays</span>
+                {settings.workWeekPattern === 'ALTERNATE_SATURDAYS' && <span className="w-2 h-2 rounded-full bg-teal-600" />}
+              </div>
+              <p className="text-[11px] text-slate-500">2nd & 4th Saturdays + All Sundays off. 1st, 3rd & 5th Saturdays working.</p>
+            </button>
+          </div>
         </div>
 
         {/* Office Working Hours & Late Grace Period */}

@@ -217,21 +217,74 @@ export const AttendanceReminderAndPWA: React.FC = () => {
     }
   };
 
+  const triggerTestNotification = async () => {
+    if (!('Notification' in window)) {
+      toast.error('Push notifications are not supported on this browser.');
+      return;
+    }
+
+    if (Notification.permission !== 'granted') {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        toast.error('Please allow notifications in browser settings.');
+        return;
+      }
+    }
+
+    try {
+      const options: any = {
+        body: '🔔 Realtime alert active! Your mobile notifications are working perfectly.',
+        icon: '/logo.png',
+        badge: '/logo.png',
+        vibrate: [300, 100, 300, 100, 300],
+        tag: 'shero-live-test',
+        renotify: true,
+        requireInteraction: true,
+      };
+
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification('Shero Home Food — Attendance', options);
+      } else {
+        new Notification('Shero Home Food — Attendance', options);
+      }
+      toast.success('Live notification sent to your device!');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to trigger notification');
+    }
+  };
+
   return (
     <>
-      {/* PWA Install Button (Shown on mobile/desktop header if not in standalone) */}
-      {!isStandalone && (
-        <button
-          type="button"
-          onClick={handleInstallClick}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
-          title="Install Shero Attendance app on mobile home screen"
-        >
-          <Smartphone className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Install Mobile App</span>
-          <span className="sm:hidden">Install App</span>
-        </button>
-      )}
+      {/* PWA & Realtime Alert Controls (Shown in header/top) */}
+      <div className="flex items-center gap-2">
+        {!isStandalone && (
+          <button
+            type="button"
+            onClick={handleInstallClick}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
+            title="Install Shero Attendance app on mobile home screen"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Install Mobile App</span>
+            <span className="sm:hidden">Install App</span>
+          </button>
+        )}
+
+        {'Notification' in window && Notification.permission !== 'granted' && (
+          <button
+            type="button"
+            onClick={triggerTestNotification}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
+            title="Enable realtime mobile notifications"
+          >
+            <Bell className="w-3.5 h-3.5 animate-bounce" />
+            <span className="hidden sm:inline">Enable Mobile Alerts</span>
+            <span className="sm:hidden">Alerts</span>
+          </button>
+        )}
+      </div>
 
       {/* iOS Add to Home Screen Instructions Modal */}
       {showIosGuide && createPortal(

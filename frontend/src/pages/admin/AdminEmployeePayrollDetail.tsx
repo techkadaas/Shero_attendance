@@ -136,17 +136,17 @@ const AdminEmployeePayrollDetail = () => {
               <span className="text-xs text-teal-200/80 font-medium">/ month</span>
             </div>
             <p className="text-xs text-teal-100/80 mt-2 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              Calculated on {payrollData.eligibleDays} days worked out of {payrollData.daysInMonth} calendar days.
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              Calculated on {payrollData.eligibleDays} eligible days out of {payrollData.totalWorkingDays || payrollData.daysInMonth} working days (excl. {payrollData.holidaysInMonth || 0} holidays & {payrollData.weeklyOffsInMonth || 0} weekly offs).
             </p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-md px-5 py-4 rounded-2xl border border-white/10 text-right">
             <p className="text-[10px] text-teal-200 uppercase font-semibold">Attendance Ratio</p>
             <p className="text-xl font-extrabold font-mono text-white mt-0.5">
-              {Math.round((payrollData.eligibleDays / (payrollData.daysInMonth || 1)) * 100)}%
+              {Math.round((payrollData.eligibleDays / (payrollData.totalWorkingDays || payrollData.daysInMonth || 1)) * 100)}%
             </p>
-            <p className="text-[10px] text-teal-200/70">{payrollData.eligibleDays} / {payrollData.daysInMonth} Days</p>
+            <p className="text-[10px] text-teal-200/70">{payrollData.eligibleDays} / {payrollData.totalWorkingDays || payrollData.daysInMonth} Working Days</p>
           </div>
         </div>
       </div>

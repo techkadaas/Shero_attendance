@@ -625,17 +625,85 @@ router.put('/employees/:id/salary', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// --- Helper to calculate working days in a month excluding weekly offs and declared holidays ---
+const getMonthWorkingDaysStats = async (year: number, month: number, workWeekPattern: string = '6_DAYS') => {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const mm = String(month).padStart(2, '0');
+  const startDateStr = `${year}-${mm}-01`;
+  const endDateStr = `${year}-${mm}-${String(daysInMonth).padStart(2, '0')}`;
+
+  // Fetch all declared holidays for this month
+  const monthHolidays = await holidays().find({
+    date: { $gte: startDateStr, $lte: endDateStr }
+  }).toArray();
+  const holidayDateSet = new Set(monthHolidays.map(h => h.date));
+
+  let workingDaysCount = 0;
+  let holidaysCount = 0;
+  let weeklyOffsCount = 0;
+  const workingDates: string[] = [];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month - 1, day);
+    const dayOfWeek = d.getDay(); // 0 = Sun, 6 = Sat
+    const dd = String(day).padStart(2, '0');
+    const dateStr = `${year}-${mm}-${dd}`;
+
+    let isWeeklyOff = false;
+    if (workWeekPattern === '5_DAYS') {
+      isWeeklyOff = (dayOfWeek === 0 || dayOfWeek === 6);
+    } else if (workWeekPattern === 'ALTERNATE_SATURDAYS') {
+      const weekNum = Math.ceil(day / 7);
+      isWeeklyOff = (dayOfWeek === 0 || (dayOfWeek === 6 && (weekNum === 2 || weekNum === 4)));
+    } else {
+      // 6_DAYS (Default: Sundays Off)
+      isWeeklyOff = (dayOfWeek === 0);
+    }
+
+    if (isWeeklyOff) {
+      weeklyOffsCount++;
+    } else if (holidayDateSet.has(dateStr)) {
+      holidaysCount++;
+    } else {
+      workingDaysCount++;
+      workingDates.push(dateStr);
+    }
+  }
+
+  // Fallback to at least 1 working day to avoid division by zero
+  if (workingDaysCount === 0) workingDaysCount = daysInMonth;
+
+  return {
+    daysInMonth,
+    workingDaysCount,
+    holidaysCount,
+    weeklyOffsCount,
+    workingDates,
+  };
+};
+
 // --- Admin Payroll Calculation ---
 router.get('/payroll', async (req: AuthRequest, res: Response) => {
   try {
     const { month, year } = req.query as any;
     if (!month || !year) return res.status(400).json({ error: 'Missing month and year' });
 
-    const startDate = new Date(Number(year), Number(month) - 1, 1);
-    const endDate = new Date(Number(year), Number(month), 0, 23, 59, 59);
-    
-    // Get total days in the month
-    const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+    const m = Number(month);
+    const y = Number(year);
+    const startDate = new Date(y, m - 1, 1);
+    const endDate = new Date(y, m, 0, 23, 59, 59);
+
+    // Fetch global settings
+    let currentSettings = await settings().findOne({});
+    if (!currentSettings) {
+      currentSettings = { pfEmployeeRate: 0.12, pfEmployerRate: 0.12, esiEmployeeRate: 0.0075, esiEmployerRate: 0.0325 };
+    }
+
+    const { daysInMonth, workingDaysCount, holidaysCount, weeklyOffsCount } = await getMonthWorkingDaysStats(
+      y,
+      m,
+      currentSettings.workWeekPattern || '6_DAYS'
+    );
 
     const employees = await users()
       .find({ role: 'EMPLOYEE' })
@@ -645,31 +713,26 @@ router.get('/payroll', async (req: AuthRequest, res: Response) => {
       .find({ date: { $gte: startDate, $lte: endDate } })
       .toArray();
 
-    // Fetch global statutory settings
-    let currentSettings = await settings().findOne({});
-    if (!currentSettings) {
-      currentSettings = { pfEmployeeRate: 0.12, pfEmployerRate: 0.12, esiEmployeeRate: 0.0075, esiEmployerRate: 0.0325 };
-    }
-
     const payroll = employees.map(emp => {
       const empRecords = records.filter(r => r.employeeId === emp.employeeId);
-      const eligibleDays = empRecords.length;
+      // Eligible days calculated on actual working days attended
+      const eligibleDays = Math.min(workingDaysCount, empRecords.length);
       
       const basicSalary = emp.basicSalary || 0;
       const grossSalary = emp.grossSalary || 0;
       const otherDeductions = emp.otherDeductions || 0;
 
-      // Formulas
-      const earnedBasic = (basicSalary / daysInMonth) * eligibleDays;
-      const earnedGross = (grossSalary / daysInMonth) * eligibleDays;
+      // Calculate strictly on official working days in month (removing holidays & weekly offs)
+      const earnedBasic = (basicSalary / workingDaysCount) * eligibleDays;
+      const earnedGross = (grossSalary / workingDaysCount) * eligibleDays;
 
       const employeePF = emp.pfApplicable ? earnedBasic * currentSettings.pfEmployeeRate : 0;
       const employerPF = emp.pfApplicable ? earnedBasic * currentSettings.pfEmployerRate : 0;
 
-      const employeeESI = emp.esiApplicable ? earnedGross * currentSettings.esiEmployeeRate : 0;
-      const employerESI = emp.esiApplicable ? earnedGross * currentSettings.esiEmployerRate : 0;
+      const employeeESI = emp.esiApplicable && grossSalary <= 21000 ? earnedGross * currentSettings.esiEmployeeRate : 0;
+      const employerESI = emp.esiApplicable && grossSalary <= 21000 ? earnedGross * currentSettings.esiEmployerRate : 0;
 
-      const netSalary = earnedGross - employeePF - employeeESI - otherDeductions;
+      const netSalary = Math.max(0, earnedGross - employeePF - employeeESI - otherDeductions);
 
       return {
         employeeId: emp.employeeId,
@@ -677,6 +740,9 @@ router.get('/payroll', async (req: AuthRequest, res: Response) => {
         basicSalary,
         grossSalary,
         daysInMonth,
+        totalWorkingDays: workingDaysCount,
+        holidaysInMonth: holidaysCount,
+        weeklyOffsInMonth: weeklyOffsCount,
         eligibleDays,
         earnedBasic,
         earnedGross,

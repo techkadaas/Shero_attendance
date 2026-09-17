@@ -43,33 +43,40 @@ self.addEventListener('fetch', (event) => {
 // Listen for push notification events
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || 'Shero Attendance Reminder';
+  const title = data.title || 'Shero Home Food — Attendance';
   const options = {
-    body: data.body || 'Please check your attendance status.',
+    body: data.body || 'Please mark your attendance or check your active session.',
     icon: '/logo.png',
     badge: '/logo.png',
-    vibrate: [200, 100, 200],
+    vibrate: [300, 100, 300, 100, 300],
+    tag: data.tag || 'shero-alert',
+    renotify: true,
+    requireInteraction: true,
     data: {
       url: data.url || '/'
-    }
+    },
+    actions: [
+      { action: 'open_app', title: 'Open App 📲' }
+    ]
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      if (clientList.length > 0) {
-        let client = clientList[0];
-        for (let i = 0; i < clientList.length; i++) {
-          if (clientList[i].focused) {
-            client = clientList[i];
-          }
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
         }
-        return client.focus();
       }
-      return clients.openWindow('/');
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
     })
   );
 });

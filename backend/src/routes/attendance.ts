@@ -262,9 +262,11 @@ router.get('/salary', authenticateToken, async (req: AuthRequest, res: Response)
       return res.status(400).json({ error: 'Missing month and year' });
     }
 
-    const startDate = new Date(Number(year), Number(month) - 1, 1);
-    const endDate = new Date(Number(year), Number(month), 0, 23, 59, 59);
-    const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+    const m = Number(month);
+    const y = Number(year);
+    const startDate = new Date(y, m - 1, 1);
+    const endDate = new Date(y, m, 0, 23, 59, 59);
+    const daysInMonth = new Date(y, m, 0).getDate();
 
     const emp = await users().findOne({ employeeId });
     if (!emp) return res.status(404).json({ error: 'Employee not found' });
@@ -275,24 +277,66 @@ router.get('/salary', authenticateToken, async (req: AuthRequest, res: Response)
 
     let currentSettings = await settings().findOne({});
     if (!currentSettings) {
-      currentSettings = { pfEmployeeRate: 0.12, pfEmployerRate: 0.12, esiEmployeeRate: 0.0075, esiEmployerRate: 0.0325 };
+      currentSettings = { pfEmployeeRate: 0.12, pfEmployerRate: 0.12, esiEmployeeRate: 0.0075, esiEmployerRate: 0.0325, workWeekPattern: '6_DAYS' };
     }
 
-    const eligibleDays = records.length;
+    // Calculate month working days excluding weekly offs and company holidays
+    const mm = String(m).padStart(2, '0');
+    const startDateStr = `${y}-${mm}-01`;
+    const endDateStr = `${y}-${mm}-${String(daysInMonth).padStart(2, '0')}`;
+
+    const monthHolidays = await holidays().find({
+      date: { $gte: startDateStr, $lte: endDateStr }
+    }).toArray();
+    const holidayDateSet = new Set(monthHolidays.map(h => h.date));
+
+    let workingDaysCount = 0;
+    let holidaysCount = 0;
+    let weeklyOffsCount = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(y, m - 1, day);
+      const dayOfWeek = d.getDay(); // 0 = Sun, 6 = Sat
+      const dd = String(day).padStart(2, '0');
+      const dateStr = `${y}-${mm}-${dd}`;
+
+      let isWeeklyOff = false;
+      const pattern = currentSettings.workWeekPattern || '6_DAYS';
+      if (pattern === '5_DAYS') {
+        isWeeklyOff = (dayOfWeek === 0 || dayOfWeek === 6);
+      } else if (pattern === 'ALTERNATE_SATURDAYS') {
+        const weekNum = Math.ceil(day / 7);
+        isWeeklyOff = (dayOfWeek === 0 || (dayOfWeek === 6 && (weekNum === 2 || weekNum === 4)));
+      } else {
+        isWeeklyOff = (dayOfWeek === 0);
+      }
+
+      if (isWeeklyOff) {
+        weeklyOffsCount++;
+      } else if (holidayDateSet.has(dateStr)) {
+        holidaysCount++;
+      } else {
+        workingDaysCount++;
+      }
+    }
+
+    if (workingDaysCount === 0) workingDaysCount = daysInMonth;
+
+    const eligibleDays = Math.min(workingDaysCount, records.length);
     const basicSalary = emp.basicSalary || 0;
     const grossSalary = emp.grossSalary || 0;
     const otherDeductions = emp.otherDeductions || 0;
 
-    const earnedBasic = (basicSalary / daysInMonth) * eligibleDays;
-    const earnedGross = (grossSalary / daysInMonth) * eligibleDays;
+    const earnedBasic = (basicSalary / workingDaysCount) * eligibleDays;
+    const earnedGross = (grossSalary / workingDaysCount) * eligibleDays;
 
     const employeePF = emp.pfApplicable ? earnedBasic * currentSettings.pfEmployeeRate : 0;
     const employerPF = emp.pfApplicable ? earnedBasic * currentSettings.pfEmployerRate : 0;
 
-    const employeeESI = emp.esiApplicable ? earnedGross * currentSettings.esiEmployeeRate : 0;
-    const employerESI = emp.esiApplicable ? earnedGross * currentSettings.esiEmployerRate : 0;
+    const employeeESI = emp.esiApplicable && grossSalary <= 21000 ? earnedGross * currentSettings.esiEmployeeRate : 0;
+    const employerESI = emp.esiApplicable && grossSalary <= 21000 ? earnedGross * currentSettings.esiEmployerRate : 0;
 
-    const netSalary = earnedGross - employeePF - employeeESI - otherDeductions;
+    const netSalary = Math.max(0, earnedGross - employeePF - employeeESI - otherDeductions);
 
     res.json({
       employeeId: emp.employeeId,
@@ -300,6 +344,9 @@ router.get('/salary', authenticateToken, async (req: AuthRequest, res: Response)
       basicSalary,
       grossSalary,
       daysInMonth,
+      totalWorkingDays: workingDaysCount,
+      holidaysInMonth: holidaysCount,
+      weeklyOffsInMonth: weeklyOffsCount,
       eligibleDays,
       earnedBasic,
       earnedGross,
