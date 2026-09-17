@@ -66,10 +66,20 @@ const EmployeeDashboard = () => {
                 <span>{todayStr}</span>
               </div>
               <div className="inline-flex items-center space-x-1.5 bg-white/15 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-white border border-white/20">
-                {workMode === 'WFH' ? (
+                {workMode === 'SSC' ? (
+                  <>
+                    <span className="text-xs">⚡</span>
+                    <span className="text-amber-200">SSC Holiday Shift</span>
+                  </>
+                ) : workMode === 'WFH' ? (
                   <>
                     <Home className="w-3.5 h-3.5 text-indigo-300" />
                     <span>Work from Home</span>
+                  </>
+                ) : workMode === 'HYBRID' ? (
+                  <>
+                    <span className="text-xs">🏢+🏠</span>
+                    <span>Hybrid Flex</span>
                   </>
                 ) : (
                   <>
@@ -212,21 +222,29 @@ const EmployeeDashboard = () => {
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-100">
-                <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">This Month</span>
-                <span className="text-2xl font-extrabold font-mono text-rose-900 mt-1 block">
+            <div className="grid grid-cols-3 gap-2.5">
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80">
+                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Holidays Worked</span>
+                <span className="text-xl font-extrabold font-mono text-amber-950 mt-1 block">
+                  {(leaveSummary as any).holidaysWorkedCount || 0} Days
+                </span>
+                <span className="text-[10px] text-amber-700 font-medium mt-0.5 block">Holiday / Sunday Punches</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-rose-50/60 border border-rose-100">
+                <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">This Month</span>
+                <span className="text-xl font-extrabold font-mono text-rose-900 mt-1 block">
                   {leaveSummary.totalLeaveDaysMonth} Days
                 </span>
                 <span className="text-[10px] text-rose-600 font-medium mt-0.5 block">Approved Leave Days</span>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">This Year</span>
-                <span className="text-2xl font-extrabold font-mono text-slate-900 mt-1 block">
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">This Year</span>
+                <span className="text-xl font-extrabold font-mono text-slate-900 mt-1 block">
                   {leaveSummary.totalLeaveDaysYear} Days
                 </span>
-                <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">Total Approved in {new Date().getFullYear()}</span>
+                <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">Total Approved Leaves</span>
               </div>
             </div>
           </div>
@@ -237,7 +255,7 @@ const EmployeeDashboard = () => {
               className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
             >
               <Clock4 className="w-3.5 h-3.5 text-teal-600" />
-              <span>Request Full/Half Day Leave or WFH</span>
+              <span>Request Week Off, Leave, or WFH</span>
             </Link>
           </div>
         </div>

@@ -54,13 +54,14 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
       checkInTimestamp = combineDateAndTimeToISTDate(todayStr, customTime);
     }
 
-    if (workMode === 'WFO') {
+    if (workMode === 'WFO' || workMode === 'SSC') {
       const currentSettings = await settings().findOne({});
       const officeLoc = currentSettings?.officeLocation;
-      if (officeLoc && officeLoc.latitude && officeLoc.longitude && officeLoc.radiusMeters) {
+      const allowedRadius = (officeLoc && officeLoc.radiusMeters) ? Number(officeLoc.radiusMeters) : 500;
+      if (officeLoc && officeLoc.latitude && officeLoc.longitude) {
         if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
           return res.status(400).json({
-            error: 'Office Location Required: WFO employees must sign in within office premises. Please enable GPS location.',
+            error: 'Office Location Required: Please enable GPS location to verify sign-in within office premises.',
           });
         }
         const userLat = Number(latitude);
@@ -69,11 +70,11 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
           return res.status(400).json({ error: 'Invalid GPS coordinates provided.' });
         }
         const distance = calculateDistanceMeters(userLat, userLon, officeLoc.latitude, officeLoc.longitude);
-        if (distance > officeLoc.radiusMeters) {
+        if (distance > allowedRadius) {
           return res.status(400).json({
-            error: `Outside Office Perimeter: You are ${distance}m away (Allowed radius: ${officeLoc.radiusMeters}m). WFO employees must be in the office to sign in.`,
+            error: `Outside Office Perimeter: You are ${distance}m away (Allowed radius: ${allowedRadius}m). Please be within 500m of the office to sign in.`,
             distance,
-            allowedRadius: officeLoc.radiusMeters,
+            allowedRadius,
           });
         }
         locationData = { latitude: userLat, longitude: userLon, distanceMeters: distance };
@@ -90,7 +91,7 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
       status: 'WORKING',
       workMode,
       location: locationData,
-      isGeofenceVerified: workMode === 'WFO' ? true : false,
+      isGeofenceVerified: (workMode === 'WFO' || workMode === 'SSC') ? true : false,
       wfhApprovedFromRequest: !!approvedWfh,
       totalWorkingSeconds: 0,
       totalStoppedSeconds: 0,
@@ -374,7 +375,7 @@ router.get('/holidays', authenticateToken, async (req: AuthRequest, res: Respons
   }
 });
 
-// --- Employee Leave Summary ---
+// --- Employee Leave Summary & Holidays Worked ---
 router.get('/leave-summary', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const employeeId = req.user!.employeeId;
@@ -383,16 +384,44 @@ router.get('/leave-summary', authenticateToken, async (req: AuthRequest, res: Re
 
     const approvedLeaves = await permissions().find({
       employeeId,
-      requestType: 'LEAVE',
+      requestType: { $in: ['LEAVE', 'WEEK_OFF'] },
       status: 'APPROVED',
     }).sort({ date: -1 }).toArray();
 
     const currentMonthLeaves = approvedLeaves.filter(l => l.date && l.date.startsWith(`${currentYear}-${currentMonth}`));
 
+    // Calculate Holidays Worked (attendance on holidays or Sundays)
+    const allAttendance = await attendances().find({ employeeId }).toArray();
+    const allHolidays = await holidays().find({}).toArray();
+    const holidayDateMap = new Map(allHolidays.map(h => [h.date, h.name]));
+
+    const holidaysWorkedList: any[] = [];
+    for (const rec of allAttendance) {
+      const recDate = new Date(rec.date);
+      const yyyy = recDate.getFullYear();
+      const mm = String(recDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(recDate.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      const isSunday = recDate.getDay() === 0;
+
+      if (holidayDateMap.has(dateStr) || isSunday) {
+        holidaysWorkedList.push({
+          date: dateStr,
+          holidayName: holidayDateMap.get(dateStr) || (isSunday ? 'Sunday Weekend' : 'Declared Holiday'),
+          checkIn: rec.checkIn,
+          checkOut: rec.checkOut,
+          status: rec.status,
+          workingSeconds: rec.totalWorkingSeconds || 0,
+        });
+      }
+    }
+
     res.json({
       totalLeaveDaysYear: approvedLeaves.length,
       totalLeaveDaysMonth: currentMonthLeaves.length,
       approvedLeaves,
+      holidaysWorkedCount: holidaysWorkedList.length,
+      holidaysWorkedList,
     });
   } catch (error) {
     console.error(error);

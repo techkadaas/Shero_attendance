@@ -64,7 +64,7 @@ router.put('/settings', async (req: AuthRequest, res: Response) => {
       updateDoc.officeLocation = {
         latitude: Number(officeLocation.latitude) || 0,
         longitude: Number(officeLocation.longitude) || 0,
-        radiusMeters: Number(officeLocation.radiusMeters) || 100,
+        radiusMeters: Number(officeLocation.radiusMeters) || 500,
         address: officeLocation.address || '',
       };
     }
@@ -363,6 +363,34 @@ router.get('/employees/:id/detail', async (req: AuthRequest, res: Response) => {
       .sort({ date: -1 })
       .toArray();
 
+    // Calculate Holidays Worked (Attendance on declared holidays or Sundays)
+    const allAttendance = await attendances()
+      .find({ employeeId: emp.employeeId })
+      .toArray();
+    const allHolidays = await holidays().find({}).toArray();
+    const holidayDateMap = new Map(allHolidays.map(h => [h.date, h.name]));
+
+    const holidaysWorkedList: any[] = [];
+    for (const rec of allAttendance) {
+      const recDate = new Date(rec.date);
+      const yyyy = recDate.getFullYear();
+      const mm = String(recDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(recDate.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      const isSunday = recDate.getDay() === 0;
+
+      if (holidayDateMap.has(dateStr) || isSunday) {
+        holidaysWorkedList.push({
+          date: dateStr,
+          holidayName: holidayDateMap.get(dateStr) || (isSunday ? 'Sunday Weekend' : 'Holiday'),
+          checkIn: rec.checkIn,
+          checkOut: rec.checkOut,
+          status: rec.status,
+          workingSeconds: rec.totalWorkingSeconds || 0,
+        });
+      }
+    }
+
     res.json({
       employee: {
         ...emp,
@@ -378,6 +406,8 @@ router.get('/employees/:id/detail', async (req: AuthRequest, res: Response) => {
       },
       recentAttendance: recentRecords,
       approvedLeaves,
+      holidaysWorkedCount: holidaysWorkedList.length,
+      holidaysWorkedList,
     });
   } catch (error) {
     console.error(error);
@@ -437,7 +467,7 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       return res.status(409).json({ error: 'User with this Employee ID already exists' });
     }
     const passwordHash = await bcrypt.hash(password, 10);
-    const validWorkMode = ['WFO', 'WFH', 'HYBRID'].includes(workMode) ? workMode : 'WFO';
+    const validWorkMode = ['WFO', 'WFH', 'HYBRID', 'SSC'].includes(workMode) ? workMode : 'WFO';
     const result = await users().insertOne({
       name,
       email,
@@ -516,7 +546,7 @@ router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
     }
 
     if (workMode !== undefined) {
-      updateFields.workMode = ['WFO', 'WFH', 'HYBRID'].includes(workMode) ? workMode : 'WFO';
+      updateFields.workMode = ['WFO', 'WFH', 'HYBRID', 'SSC'].includes(workMode) ? workMode : 'WFO';
     }
 
     if (reportingManagerId !== undefined) {

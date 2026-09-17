@@ -212,7 +212,15 @@ export const AdminEmployeeDetail = () => {
 
           {/* Work Mode Badge */}
           <div className="self-start sm:self-auto">
-            {emp.workMode === 'HYBRID' ? (
+            {emp.workMode === 'SSC' ? (
+              <div className="px-4 py-2.5 rounded-2xl bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-2 shadow-2xs">
+                <span className="text-sm">⚡</span>
+                <div>
+                  <p className="leading-tight">SSC Shift Employee</p>
+                  <p className="text-[10px] text-amber-700 font-normal">Works Holidays & Weekends</p>
+                </div>
+              </div>
+            ) : emp.workMode === 'HYBRID' ? (
               <div className="px-4 py-2.5 rounded-2xl bg-purple-50 text-purple-800 border border-purple-200 text-xs font-bold flex items-center gap-2 shadow-2xs">
                 <span className="text-sm">🏢+🏠</span>
                 <div>
@@ -233,7 +241,7 @@ export const AdminEmployeeDetail = () => {
                 <Building2 className="w-4 h-4 text-teal-600" />
                 <div>
                   <p className="leading-tight">Work from Office</p>
-                  <p className="text-[10px] text-teal-600 font-normal">Geofence GPS Required</p>
+                  <p className="text-[10px] text-teal-600 font-normal">500m Geofence GPS</p>
                 </div>
               </div>
             )}
@@ -281,6 +289,12 @@ export const AdminEmployeeDetail = () => {
 
           {/* Quick Stats Widget */}
           <div className="pt-2 space-y-2.5">
+            <div className="flex justify-between items-center text-xs p-3 rounded-xl bg-amber-50/70 border border-amber-200">
+              <span className="text-amber-900 font-medium flex items-center gap-1">
+                <span>⚡</span> Holidays Worked:
+              </span>
+              <span className="font-bold text-amber-900 font-mono">{data.holidaysWorkedCount || 0} Days</span>
+            </div>
             <div className="flex justify-between items-center text-xs p-3 rounded-xl bg-slate-50 border border-slate-100">
               <span className="text-slate-600 font-medium">Approved Leaves Taken:</span>
               <span className="font-bold text-slate-900 font-mono">{approvedLeaves.length} Days</span>

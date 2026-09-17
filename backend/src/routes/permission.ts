@@ -79,7 +79,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       }
     }
 
-    const type = requestType === 'WFH' ? 'WFH' : (requestType === 'LEAVE' ? 'LEAVE' : 'PERMISSION');
+    const type = requestType === 'WFH' ? 'WFH' : (requestType === 'LEAVE' ? 'LEAVE' : (requestType === 'WEEK_OFF' ? 'WEEK_OFF' : 'PERMISSION'));
 
     const newPermission = {
       employeeUserId: employee._id,
@@ -88,7 +88,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       employeeEmail: employee.email,
       managerUserId,
       managerInfo,
-      requestType: type, // 'PERMISSION' | 'WFH' | 'LEAVE'
+      requestType: type, // 'PERMISSION' | 'WFH' | 'LEAVE' | 'WEEK_OFF'
       date, // YYYY-MM-DD
       startTime, // e.g. "09:00"
       endTime, // e.g. "18:00"

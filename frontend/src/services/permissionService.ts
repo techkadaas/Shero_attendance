@@ -5,7 +5,7 @@ export interface PermissionRequestPayload {
   startTime: string;
   endTime: string;
   reason?: string;
-  requestType?: 'PERMISSION' | 'WFH' | 'LEAVE';
+  requestType?: 'PERMISSION' | 'WFH' | 'LEAVE' | 'WEEK_OFF';
 }
 
 export const calculateDuration = (startTime: string, endTime: string) => {
