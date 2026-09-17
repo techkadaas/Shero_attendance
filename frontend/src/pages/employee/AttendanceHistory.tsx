@@ -126,7 +126,7 @@ const AttendanceHistory = () => {
         return { ...rec, lunchStart, lunchEnd, displayStatus };
       });
       setRecords(parsed);
-      setHolidays(holidayRes.data || []);
+      setHolidays(Array.isArray(holidayRes.data) ? holidayRes.data : (holidayRes.data?.holidays || []));
       setLeaveDaysMonth(leaveRes.data?.totalLeaveDaysMonth || 0);
       setLeaveDaysYear(leaveRes.data?.totalLeaveDaysYear || 0);
     } catch (error) {

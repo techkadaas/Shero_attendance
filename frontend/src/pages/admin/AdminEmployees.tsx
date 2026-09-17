@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
-import { Eye, EyeOff, X, Calendar, Plus, IndianRupee, Edit, UserCheck, UserCog, Search, ShieldCheck, Users, Building2, Home, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, X, Calendar, Plus, IndianRupee, Edit, UserCheck, UserCog, Pencil, Search, ShieldCheck, Users, Building2, Home, ArrowRight, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AdminEmployees = () => {
@@ -306,14 +306,14 @@ const AdminEmployees = () => {
                         className="inline-flex items-center text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-xl border border-teal-200 transition-colors"
                         title="View Attendance History"
                       >
-                        <Calendar className="w-3.5 h-3.5 mr-1" /> Logs
+                        <Calendar className="w-3.5 h-3.5 mr-1" /> History
                       </button>
                       <button
                         onClick={() => openEditModal(emp)}
                         className="inline-flex items-center text-xs font-bold text-slate-700 hover:text-teal-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition-colors"
                         title="Edit Employee ID, Manager, Salary & Credentials"
                       >
-                        <UserCog className="w-3.5 h-3.5 mr-1 text-teal-600" /> Edit
+                        <Pencil className="w-3.5 h-3.5 mr-1 text-teal-600" /> Edit
                       </button>
                     </td>
                   </tr>
@@ -372,13 +372,13 @@ const AdminEmployees = () => {
                   onClick={() => viewAttendanceHistory(emp)}
                   className="flex-1 py-2 px-2 bg-teal-50 hover:bg-teal-100 text-teal-700 font-bold text-xs rounded-xl border border-teal-200 flex items-center justify-center gap-1"
                 >
-                  <Calendar className="w-3.5 h-3.5" /> Logs
+                  <Calendar className="w-3.5 h-3.5" /> History
                 </button>
                 <button
                   onClick={() => openEditModal(emp)}
                   className="flex-1 py-2 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 flex items-center justify-center gap-1"
                 >
-                  <UserCog className="w-3.5 h-3.5 text-teal-600" /> Edit
+                  <Pencil className="w-3.5 h-3.5 text-teal-600" /> Edit
                 </button>
               </div>
             </div>

@@ -84,7 +84,11 @@ const AdminSettings = () => {
         rule: bulkRule,
       });
       toast.success(res.data.message || 'Bulk holidays added successfully!');
-      setHolidays(res.data.holidays || []);
+      if (Array.isArray(res.data.holidays)) {
+        setHolidays(res.data.holidays);
+      } else {
+        await fetchHolidays();
+      }
       setBulkModalOpen(false);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to add bulk holidays');
@@ -97,7 +101,13 @@ const AdminSettings = () => {
     try {
       setLoadingHolidays(true);
       const res = await api.get('/admin/holidays');
-      setHolidays(res.data.holidays || []);
+      if (Array.isArray(res.data)) {
+        setHolidays(res.data);
+      } else if (res.data && Array.isArray(res.data.holidays)) {
+        setHolidays(res.data.holidays);
+      } else {
+        setHolidays([]);
+      }
     } catch (error) {
       console.error('Failed to load holidays', error);
     } finally {
@@ -115,7 +125,11 @@ const AdminSettings = () => {
     try {
       const res = await api.post('/admin/holidays', holidayForm);
       toast.success('Company holiday added successfully!');
-      setHolidays(res.data.holidays || []);
+      if (Array.isArray(res.data.holidays)) {
+        setHolidays(res.data.holidays);
+      } else {
+        await fetchHolidays();
+      }
       setHolidayForm({ name: '', date: '', type: 'FESTIVAL', description: '' });
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to add holiday');
@@ -130,7 +144,11 @@ const AdminSettings = () => {
     try {
       const res = await api.delete(`/admin/holidays/${id}`);
       toast.success('Holiday deleted successfully');
-      setHolidays(res.data.holidays || []);
+      if (Array.isArray(res.data.holidays)) {
+        setHolidays(res.data.holidays);
+      } else {
+        await fetchHolidays();
+      }
     } catch (err: any) {
       toast.error('Failed to delete holiday');
     }

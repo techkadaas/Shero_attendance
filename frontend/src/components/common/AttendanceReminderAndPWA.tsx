@@ -74,7 +74,7 @@ export const AttendanceReminderAndPWA: React.FC = () => {
     }
   };
 
-  // Helper to get current IST time
+  // Helper to get current IST time & Day of Week
   const getCurrentIST = () => {
     const now = new Date();
     const parts = new Intl.DateTimeFormat('en-GB', {
@@ -84,6 +84,7 @@ export const AttendanceReminderAndPWA: React.FC = () => {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
+      weekday: 'short',
       hour12: false
     }).formatToParts(now);
 
@@ -92,8 +93,13 @@ export const AttendanceReminderAndPWA: React.FC = () => {
     const yyyy = parts.find(p => p.type === 'year')?.value || '';
     const mm = parts.find(p => p.type === 'month')?.value || '';
     const dd = parts.find(p => p.type === 'day')?.value || '';
+    const weekday = parts.find(p => p.type === 'weekday')?.value || '';
     const dateStr = `${yyyy}-${mm}-${dd}`;
-    return { hours, minutes, dateStr, totalMins: hours * 60 + minutes };
+    
+    // Working days: Monday - Saturday (Sunday is off)
+    const isWorkingDay = weekday !== 'Sun';
+    
+    return { hours, minutes, dateStr, totalMins: hours * 60 + minutes, isWorkingDay };
   };
 
   // Notification Check loop
@@ -102,13 +108,13 @@ export const AttendanceReminderAndPWA: React.FC = () => {
 
     const checkAttendanceAndRemind = async () => {
       try {
-        const { hours, minutes, dateStr, totalMins } = getCurrentIST();
+        const { dateStr, totalMins, isWorkingDay } = getCurrentIST();
         const data = await getTodayAttendance();
         const status = data?.attendance?.status || 'NOT_CHECKED_IN';
 
-        // 10:13 AM Reminder: (10:13 = 10*60 + 13 = 613 minutes)
-        // Trigger if time is >= 10:13 AM (and before 19:00) and status is NOT_CHECKED_IN
-        if (totalMins >= 613 && totalMins < 1140 && status === 'NOT_CHECKED_IN') {
+        // 10:13 AM Sign-In Reminder: (10:13 IST = 10*60 + 13 = 613 minutes)
+        // Trigger ONLY on working days (Mon-Sat) and ONLY between 10:13 AM and 11:30 AM window
+        if (isWorkingDay && totalMins >= 613 && totalMins <= 690 && status === 'NOT_CHECKED_IN') {
           const sessionDismissKey = `dismissed_signin_${dateStr}`;
           if (sessionStorage.getItem(sessionDismissKey) !== 'true' && dismissedKey !== sessionDismissKey) {
             setReminderType('SIGN_IN_1013');
@@ -139,9 +145,9 @@ export const AttendanceReminderAndPWA: React.FC = () => {
           }
         }
 
-        // 07:13 PM Reminder: (19:13 = 19*60 + 13 = 1153 minutes)
-        // Trigger if time is >= 19:13 and status is WORKING (not yet signed out)
-        if (totalMins >= 1153 && status === 'WORKING') {
+        // 07:13 PM Sign-Out Reminder: (19:13 IST = 19*60 + 13 = 1153 minutes)
+        // Trigger ONLY starting at 7:13 PM (19:13 to 21:00) and if user is currently WORKING
+        if (totalMins >= 1153 && totalMins <= 1260 && status === 'WORKING') {
           const sessionDismissKey = `dismissed_signout_${dateStr}`;
           if (sessionStorage.getItem(sessionDismissKey) !== 'true' && dismissedKey !== sessionDismissKey) {
             setReminderType('SIGN_OUT_1913');

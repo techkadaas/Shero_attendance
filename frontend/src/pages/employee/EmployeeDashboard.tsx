@@ -23,7 +23,7 @@ const EmployeeDashboard = () => {
         api.get('/attendance/leave-summary').catch(() => ({ data: { totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 } })),
       ]);
       setAttendance(attData);
-      setHolidays(holidayRes.data || []);
+      setHolidays(Array.isArray(holidayRes.data) ? holidayRes.data : (holidayRes.data?.holidays || []));
       setLeaveSummary(leaveRes.data || { totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 });
     } catch (error) {
       console.error('Failed to fetch dashboard data', error);

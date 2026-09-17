@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { 
   ArrowLeft, 
   UserCog, 
+  Pencil,
   Calendar, 
   IndianRupee, 
   UserCheck, 
@@ -157,7 +158,7 @@ export const AdminEmployeeDetail = () => {
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200/80 text-xs font-bold shadow-2xs transition-all"
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>View Attendance Logs</span>
+            <span>View Attendance History</span>
           </Link>
           <Link
             to={`/admin/payroll/${emp._id}`}
@@ -171,7 +172,7 @@ export const AdminEmployeeDetail = () => {
             onClick={() => setEditOpen(true)}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
           >
-            <UserCog className="w-3.5 h-3.5" />
+            <Pencil className="w-3.5 h-3.5" />
             <span>Edit Profile & Salary</span>
           </button>
         </div>
@@ -442,7 +443,7 @@ export const AdminEmployeeDetail = () => {
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center font-bold">
-                  <UserCog className="w-5 h-5" />
+                  <Pencil className="w-5 h-5" />
                 </div>
                 <div>
                   <h2 className="text-sm font-extrabold text-slate-900">Edit Staff Profile & Salary</h2>

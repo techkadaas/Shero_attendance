@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import api from '../../services/api';
 import { formatDuration, formatTime, formatTime12 } from '../../utils/timeUtils';
 import { format } from 'date-fns';
-import { UserCheck, UserX, Users, Clock, LogOut, Loader2, Clock4, Settings2, X, Sparkles, Calendar } from 'lucide-react';
+import { UserCheck, UserX, Users, Clock, LogOut, Loader2, Clock4, Settings2, X, Sparkles, Calendar, Pencil } from 'lucide-react';
 import LiveTimer from '../../components/attendance/LiveTimer';
 import toast from 'react-hot-toast';
 
@@ -119,17 +119,51 @@ const AdminDashboard = () => {
     }
   };
 
-  const SummaryCard = ({ title, value, icon: Icon, colorClass, bgClass }: any) => (
-    <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-card hover:shadow-card-hover transition-all">
-      <div className="flex items-center space-x-3 mb-2">
-        <div className={`p-2.5 rounded-xl ${bgClass}`}>
-          <Icon className={`w-5 h-5 ${colorClass}`} />
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'PERMISSIONS' | 'LEAVE' | 'SIGNED_OUT'>('ALL');
+
+  const SummaryCard = ({ title, value, filterType, icon: Icon, colorClass, bgClass, ringClass }: any) => {
+    const isSelected = activeFilter === filterType;
+    return (
+      <button
+        type="button"
+        onClick={() => setActiveFilter(isSelected ? 'ALL' : filterType)}
+        className={`w-full text-left p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${
+          isSelected 
+            ? `bg-white shadow-lg ring-2 ${ringClass} scale-[1.02] border-transparent` 
+            : 'bg-white border-slate-200/80 shadow-card hover:shadow-card-hover hover:border-slate-300'
+        }`}
+      >
+        {isSelected && (
+          <div className="absolute top-2 right-2 flex items-center gap-1 bg-slate-900 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
+            <span>Filtered</span>
+          </div>
+        )}
+        <div className="flex items-center space-x-3 mb-2">
+          <div className={`p-2.5 rounded-xl ${bgClass} group-hover:scale-105 transition-transform`}>
+            <Icon className={`w-5 h-5 ${colorClass}`} />
+          </div>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{title}</p>
         </div>
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{title}</p>
-      </div>
-      <p className="text-2xl font-extrabold text-slate-900 tracking-tight font-mono">{value}</p>
-    </div>
-  );
+        <div className="flex items-baseline justify-between">
+          <p className="text-2xl font-extrabold text-slate-900 tracking-tight font-mono">{value}</p>
+          <span className="text-[10px] text-slate-400 font-medium group-hover:text-teal-600 transition-colors">
+            {isSelected ? 'Click to reset' : 'Click to view'}
+          </span>
+        </div>
+      </button>
+    );
+  };
+
+  // Filtered dataset calculation
+  const displayedAttendance = attendance.filter((rec) => {
+    if (activeFilter === 'PRESENT') return true;
+    if (activeFilter === 'LATE') return rec.isLate;
+    if (activeFilter === 'SIGNED_OUT') return rec.status === 'CHECKED_OUT';
+    return true;
+  });
+
+  const absentList = summary?.absentList || [];
+  const permissionList = summary?.permissionList || [];
 
   return (
     <div className="space-y-6">
@@ -156,9 +190,10 @@ const AdminDashboard = () => {
             </div>
             <button
               onClick={() => setShowTimingModal(true)}
-              className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-2 py-1 rounded-lg border border-teal-200 transition-colors"
+              className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-2.5 py-1 rounded-lg border border-teal-200 transition-colors"
+              title="Edit Office Shift Timings"
             >
-              <Settings2 className="w-3 h-3" />
+              <Pencil className="w-3 h-3" />
               Adjust
             </button>
           </div>
@@ -180,128 +215,331 @@ const AdminDashboard = () => {
         </div>
       ) : (
         <>
-          {/* Metric Telemetry Cards (5-col grid with Working Now removed) */}
+          {/* Interactive Metric Telemetry Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-            <SummaryCard title="Present" value={summary?.present || 0} icon={UserCheck} colorClass="text-emerald-600" bgClass="bg-emerald-50" />
-            <SummaryCard title="Late Today" value={summary?.lateToday || 0} icon={Clock} colorClass="text-amber-600" bgClass="bg-amber-50" />
-            <SummaryCard title="Permissions" value={summary?.permissionCount || 0} icon={Clock4} colorClass="text-indigo-600" bgClass="bg-indigo-50" />
-            <SummaryCard title="On Leave" value={summary?.absent || 0} icon={UserX} colorClass="text-rose-600" bgClass="bg-rose-50" />
-            <SummaryCard title="Signed Out" value={summary?.checkedOut || 0} icon={LogOut} colorClass="text-slate-600" bgClass="bg-slate-100" />
+            <SummaryCard 
+              title="Present" 
+              value={summary?.present || 0} 
+              filterType="PRESENT" 
+              icon={UserCheck} 
+              colorClass="text-emerald-600" 
+              bgClass="bg-emerald-50" 
+              ringClass="ring-emerald-500" 
+            />
+            <SummaryCard 
+              title="Late Today" 
+              value={summary?.lateToday || 0} 
+              filterType="LATE" 
+              icon={Clock} 
+              colorClass="text-amber-600" 
+              bgClass="bg-amber-50" 
+              ringClass="ring-amber-500" 
+            />
+            <SummaryCard 
+              title="Permissions" 
+              value={summary?.permissionCount || 0} 
+              filterType="PERMISSIONS" 
+              icon={Clock4} 
+              colorClass="text-indigo-600" 
+              bgClass="bg-indigo-50" 
+              ringClass="ring-indigo-500" 
+            />
+            <SummaryCard 
+              title="On Leave" 
+              value={summary?.absent || 0} 
+              filterType="LEAVE" 
+              icon={UserX} 
+              colorClass="text-rose-600" 
+              bgClass="bg-rose-50" 
+              ringClass="ring-rose-500" 
+            />
+            <SummaryCard 
+              title="Signed Out" 
+              value={summary?.checkedOut || 0} 
+              filterType="SIGNED_OUT" 
+              icon={LogOut} 
+              colorClass="text-slate-600" 
+              bgClass="bg-slate-100" 
+              ringClass="ring-slate-500" 
+            />
           </div>
 
-          {/* Desktop Table */}
-          <div className="hidden sm:block bg-white shadow-card rounded-3xl border border-slate-200/80 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-100">
-                <thead className="bg-slate-50/75">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Sign In</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Sign Out</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Working Duration</th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {attendance.length === 0 ? (
+          {/* Active Filter Status Bar */}
+          {activeFilter !== 'ALL' && (
+            <div className="flex items-center justify-between bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-md animate-fade-in">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
+                <span className="text-xs font-semibold text-slate-300">
+                  Showing list for: <strong className="text-white uppercase tracking-wider">{activeFilter.replace('_', ' ')}</strong>
+                  {activeFilter === 'LEAVE' && ` (${absentList.length} staff)`}
+                  {activeFilter === 'PERMISSIONS' && ` (${permissionList.length} staff)`}
+                  {activeFilter !== 'LEAVE' && activeFilter !== 'PERMISSIONS' && ` (${displayedAttendance.length} staff)`}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveFilter('ALL')}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Show All</span>
+              </button>
+            </div>
+          )}
+
+          {/* VIEW: ON LEAVE / ABSENT EMPLOYEES */}
+          {activeFilter === 'LEAVE' ? (
+            <div className="bg-white shadow-card rounded-3xl border border-slate-200/80 overflow-hidden animate-fade-in">
+              <div className="px-6 py-4 border-b border-slate-100 bg-rose-50/40 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserX className="w-4 h-4 text-rose-600" />
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Staff On Leave / Absent Today ({absentList.length})
+                  </h3>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-100">
+                  <thead className="bg-slate-50/75">
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">
-                        No employee attendance recorded for this date.
-                      </td>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee ID</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Work Mode</th>
+                      <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
                     </tr>
-                  ) : (
-                    attendance.map((record) => (
-                      <tr key={record._id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-800 font-bold flex items-center justify-center text-xs border border-teal-100">
-                              {(record.user?.name || record.employeeId).charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <div className="text-xs font-bold text-slate-900">{record.user?.name || record.employeeId}</div>
-                              {record.user && <div className="text-[10px] text-slate-400 font-mono">{record.user.employeeId}</div>}
-                            </div>
-                          </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {absentList.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">
+                          All active employees are present today! No staff on leave.
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-medium text-slate-700">
-                          <div className="flex items-center gap-1.5">
-                            <span>{formatTime(record.checkIn) || '--:--'}</span>
+                      </tr>
+                    ) : (
+                      absentList.map((emp: any) => (
+                        <tr key={emp.employeeId} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-700 font-bold flex items-center justify-center text-xs border border-rose-100">
+                                {emp.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold text-slate-900">{emp.name}</div>
+                                <div className="text-[10px] text-slate-400">{emp.email}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-bold text-slate-700">
+                            {emp.employeeId}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold text-slate-600">
+                            {emp.workMode || 'WFO'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              ON LEAVE / ABSENT
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : activeFilter === 'PERMISSIONS' ? (
+            /* VIEW: PERMISSIONS / WFH REQUESTS */
+            <div className="bg-white shadow-card rounded-3xl border border-slate-200/80 overflow-hidden animate-fade-in">
+              <div className="px-6 py-4 border-b border-slate-100 bg-indigo-50/40 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock4 className="w-4 h-4 text-indigo-600" />
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Permissions & WFH Requests Today ({permissionList.length})
+                  </h3>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-100">
+                  <thead className="bg-slate-50/75">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Request Type</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Timing / Reason</th>
+                      <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {permissionList.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">
+                          No permissions or WFH requests recorded for this date.
+                        </td>
+                      </tr>
+                    ) : (
+                      permissionList.map((p: any) => (
+                        <tr key={p._id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 font-bold flex items-center justify-center text-xs border border-indigo-100">
+                                {p.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold text-slate-900">{p.name}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">{p.employeeId}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              {p.requestType}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-xs text-slate-600">
+                            <div>
+                              {p.startTime && p.endTime && (
+                                <span className="font-mono font-bold text-slate-800 mr-2">
+                                  {p.startTime} - {p.endTime}
+                                </span>
+                              )}
+                              <span>{p.reason || 'No reason specified'}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                              p.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                              p.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              'bg-rose-50 text-rose-700 border-rose-200'
+                            }`}>
+                              {p.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            /* VIEW: ATTENDANCE LOGS (ALL / PRESENT / LATE / SIGNED_OUT) */
+            <>
+              {/* Desktop Table */}
+              <div className="hidden sm:block bg-white shadow-card rounded-3xl border border-slate-200/80 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-100">
+                    <thead className="bg-slate-50/75">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Sign In</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Sign Out</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Working Duration</th>
+                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {displayedAttendance.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">
+                            No matching employee attendance found for this selection.
+                          </td>
+                        </tr>
+                      ) : (
+                        displayedAttendance.map((record) => (
+                          <tr key={record._id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-800 font-bold flex items-center justify-center text-xs border border-teal-100">
+                                  {(record.user?.name || record.employeeId).charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="text-xs font-bold text-slate-900">{record.user?.name || record.employeeId}</div>
+                                  {record.user && <div className="text-[10px] text-slate-400 font-mono">{record.user.employeeId}</div>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-medium text-slate-700">
+                              <div className="flex items-center gap-1.5">
+                                <span>{formatTime(record.checkIn) || '--:--'}</span>
+                                {record.isLate && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-200">
+                                    LATE
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-medium text-slate-700">
+                              {formatTime(record.checkOut) || '--:--'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-bold text-teal-700">
+                              {record.status === 'WORKING' ? (
+                                <LiveTimer status={record.status} initialWorkingSeconds={record.totalWorkingSeconds} lastResumeTimestamp={getLastResumeTime(record.events)} />
+                              ) : (
+                                formatDuration(record.totalWorkingSeconds)
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                              {getStatusBadge(record.status)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile Card List */}
+              <div className="sm:hidden space-y-3">
+                {displayedAttendance.length === 0 ? (
+                  <div className="bg-white rounded-3xl p-8 text-center text-slate-400 text-xs border border-slate-200 shadow-card">
+                    No matching attendance records.
+                  </div>
+                ) : (
+                  displayedAttendance.map((record) => (
+                    <div key={record._id} className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-card space-y-3">
+                      <div className="flex justify-between items-start pb-2 border-b border-slate-100">
+                        <div>
+                          <p className="font-bold text-slate-900 text-xs">{record.user?.name || record.employeeId}</p>
+                          {record.user && <p className="text-[10px] text-slate-400 font-mono mt-0.5">{record.user.employeeId}</p>}
+                        </div>
+                        {getStatusBadge(record.status)}
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="bg-slate-50 rounded-xl p-2">
+                          <p className="text-[10px] text-slate-400 mb-0.5">Sign In</p>
+                          <div className="flex flex-col items-center">
+                            <p className="font-mono font-bold text-slate-800">{formatTime(record.checkIn) || '—'}</p>
                             {record.isLate && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-200">
+                              <span className="mt-0.5 px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-100 text-amber-800 border border-amber-200">
                                 LATE
                               </span>
                             )}
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-medium text-slate-700">
-                          {formatTime(record.checkOut) || '--:--'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-bold text-teal-700">
-                          {record.status === 'WORKING' ? (
-                            <LiveTimer status={record.status} initialWorkingSeconds={record.totalWorkingSeconds} lastResumeTimestamp={getLastResumeTime(record.events)} />
-                          ) : (
-                            formatDuration(record.totalWorkingSeconds)
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          {getStatusBadge(record.status)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Mobile Card List */}
-          <div className="sm:hidden space-y-3">
-            {attendance.length === 0 ? (
-              <div className="bg-white rounded-3xl p-8 text-center text-slate-400 text-xs border border-slate-200 shadow-card">
-                No attendance records for this date.
-              </div>
-            ) : (
-              attendance.map((record) => (
-                <div key={record._id} className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-card space-y-3">
-                  <div className="flex justify-between items-start pb-2 border-b border-slate-100">
-                    <div>
-                      <p className="font-bold text-slate-900 text-xs">{record.user?.name || record.employeeId}</p>
-                      {record.user && <p className="text-[10px] text-slate-400 font-mono mt-0.5">{record.user.employeeId}</p>}
-                    </div>
-                    {getStatusBadge(record.status)}
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                    <div className="bg-slate-50 rounded-xl p-2">
-                      <p className="text-[10px] text-slate-400 mb-0.5">Sign In</p>
-                      <div className="flex flex-col items-center">
-                        <p className="font-mono font-bold text-slate-800">{formatTime(record.checkIn) || '—'}</p>
-                        {record.isLate && (
-                          <span className="mt-0.5 px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-100 text-amber-800 border border-amber-200">
-                            LATE
-                          </span>
-                        )}
+                        </div>
+                        <div className="bg-slate-50 rounded-xl p-2">
+                          <p className="text-[10px] text-slate-400 mb-0.5">Sign Out</p>
+                          <p className="font-mono font-bold text-slate-800">{formatTime(record.checkOut) || '—'}</p>
+                        </div>
+                        <div className="bg-teal-50 rounded-xl p-2 border border-teal-100">
+                          <p className="text-[10px] text-teal-600 mb-0.5 font-bold">Working</p>
+                          <p className="font-mono font-extrabold text-teal-800">
+                            {record.status === 'WORKING' ? (
+                              <LiveTimer status={record.status} initialWorkingSeconds={record.totalWorkingSeconds} lastResumeTimestamp={getLastResumeTime(record.events)} />
+                            ) : (
+                              formatDuration(record.totalWorkingSeconds)
+                            )}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                    <div className="bg-slate-50 rounded-xl p-2">
-                      <p className="text-[10px] text-slate-400 mb-0.5">Sign Out</p>
-                      <p className="font-mono font-bold text-slate-800">{formatTime(record.checkOut) || '—'}</p>
-                    </div>
-                    <div className="bg-teal-50 rounded-xl p-2 border border-teal-100">
-                      <p className="text-[10px] text-teal-600 mb-0.5 font-bold">Working</p>
-                      <p className="font-mono font-extrabold text-teal-800">
-                        {record.status === 'WORKING' ? (
-                          <LiveTimer status={record.status} initialWorkingSeconds={record.totalWorkingSeconds} lastResumeTimestamp={getLastResumeTime(record.events)} />
-                        ) : (
-                          formatDuration(record.totalWorkingSeconds)
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
         </>
       )}
 

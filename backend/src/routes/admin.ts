@@ -104,6 +104,12 @@ const handleDashboardSummary = async (req: AuthRequest, res: Response) => {
       .find({ date: { $gte: start, $lte: end } })
       .toArray();
 
+    // Query all active employees
+    const allEmployees = await users()
+      .find({ role: 'EMPLOYEE', status: { $ne: 'INACTIVE' } })
+      .project({ name: 1, employeeId: 1, email: 1, workMode: 1, status: 1 })
+      .toArray();
+
     // Query permissions for this date
     const permissionsForDate = await permissions()
       .find({
@@ -122,29 +128,89 @@ const handleDashboardSummary = async (req: AuthRequest, res: Response) => {
     const [startH, startM] = officeStartTime.split(':').map(Number);
     const thresholdMinutes = (isNaN(startH) ? 9 : startH) * 60 + (isNaN(startM) ? 0 : startM) + graceMinutes;
 
-    const lateCount = todayRecords.filter((r) => {
-      if (!r.checkIn) return false;
-      const checkInDate = new Date(r.checkIn);
-      const checkInMinutes = getISTMinutes(checkInDate);
-      return checkInMinutes > thresholdMinutes;
-    }).length;
+    const checkedInEmployeeIds = new Set(todayRecords.map(r => r.employeeId));
+
+    // Build rich lists with user details
+    const presentList: any[] = [];
+    const lateList: any[] = [];
+    const checkedOutList: any[] = [];
+    const stoppedList: any[] = [];
+
+    for (const rec of todayRecords) {
+      const user = allEmployees.find(e => e.employeeId === rec.employeeId);
+      let isLate = false;
+      if (rec.checkIn) {
+        const checkInDate = new Date(rec.checkIn);
+        const checkInMinutes = getISTMinutes(checkInDate);
+        isLate = checkInMinutes > thresholdMinutes;
+      }
+
+      const item = {
+        _id: rec._id,
+        employeeId: rec.employeeId,
+        name: user?.name || rec.employeeId,
+        email: user?.email,
+        workMode: rec.workMode || user?.workMode || 'WFO',
+        checkIn: rec.checkIn,
+        checkOut: rec.checkOut,
+        status: rec.status,
+        totalWorkingSeconds: rec.totalWorkingSeconds || 0,
+        isLate,
+      };
+
+      presentList.push(item);
+      if (isLate) lateList.push(item);
+      if (rec.status === 'CHECKED_OUT') checkedOutList.push(item);
+      if (rec.status === 'STOPPED') stoppedList.push(item);
+    }
+
+    const absentList = allEmployees
+      .filter(emp => !checkedInEmployeeIds.has(emp.employeeId))
+      .map(emp => ({
+        employeeId: emp.employeeId,
+        name: emp.name,
+        email: emp.email,
+        workMode: emp.workMode || 'WFO',
+        status: 'ABSENT',
+      }));
+
+    const permissionList = permissionsForDate.map(p => {
+      const user = allEmployees.find(e => e.employeeId === p.employeeId);
+      return {
+        _id: p._id,
+        employeeId: p.employeeId,
+        name: user?.name || p.employeeId,
+        email: user?.email,
+        requestType: p.requestType,
+        reason: p.reason,
+        status: p.status,
+        date: p.date,
+        startTime: p.startTime,
+        endTime: p.endTime,
+      };
+    });
 
     const summary = {
       present: todayRecords.length,
-      lateToday: lateCount,
+      lateToday: lateList.length,
       workingNow: todayRecords.filter(r => r.status === 'WORKING').length,
       permissionCount: permissionsForDate.length,
-      stoppedNow: todayRecords.filter(r => r.status === 'STOPPED').length,
-      checkedOut: todayRecords.filter(r => r.status === 'CHECKED_OUT').length,
-      absent: 0,
+      stoppedNow: stoppedList.length,
+      checkedOut: checkedOutList.length,
+      absent: absentList.length,
+      presentList,
+      lateList,
+      permissionList,
+      absentList,
+      checkedOutList,
+      stoppedList,
       officeTiming: {
         officeStartTime,
         officeEndTime,
         graceMinutes,
       },
     };
-    const totalEmployees = await users().countDocuments({ role: 'EMPLOYEE' });
-    summary.absent = Math.max(0, totalEmployees - summary.present);
+
     res.json(summary);
   } catch (error) {
     console.error(error);
@@ -674,7 +740,8 @@ router.post('/holidays', async (req: AuthRequest, res: Response) => {
       createdAt: new Date(),
     };
     const result = await holidays().insertOne(newHoliday);
-    res.status(201).json({ ...newHoliday, _id: result.insertedId });
+    const updatedList = await holidays().find({}).sort({ date: 1 }).toArray();
+    res.status(201).json({ message: 'Company holiday added successfully', holiday: { ...newHoliday, _id: result.insertedId }, holidays: updatedList });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to add holiday' });
@@ -770,7 +837,8 @@ router.delete('/holidays/:id', async (req: AuthRequest, res: Response) => {
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Holiday not found' });
     }
-    res.json({ message: 'Holiday deleted successfully' });
+    const updatedList = await holidays().find({}).sort({ date: 1 }).toArray();
+    res.json({ message: 'Holiday deleted successfully', holidays: updatedList });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to delete holiday' });
