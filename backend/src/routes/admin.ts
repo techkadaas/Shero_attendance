@@ -21,12 +21,26 @@ router.get('/settings', async (req: AuthRequest, res: Response) => {
         officeStartTime: '09:00',
         officeEndTime: '18:00',
         graceMinutes: 15,
+        officeLocation: {
+          latitude: 13.0827,
+          longitude: 80.2707,
+          radiusMeters: 500,
+          address: 'Shero Home Food Head Office',
+        },
       };
       await settings().insertOne(currentSettings);
     } else {
       if (!currentSettings.officeStartTime) currentSettings.officeStartTime = '09:00';
       if (!currentSettings.officeEndTime) currentSettings.officeEndTime = '18:00';
       if (currentSettings.graceMinutes === undefined) currentSettings.graceMinutes = 15;
+      if (!currentSettings.officeLocation) {
+        currentSettings.officeLocation = {
+          latitude: 13.0827,
+          longitude: 80.2707,
+          radiusMeters: 500,
+          address: 'Shero Home Food Head Office',
+        };
+      }
     }
     res.json(currentSettings);
   } catch (error) {
@@ -45,6 +59,7 @@ router.put('/settings', async (req: AuthRequest, res: Response) => {
       officeStartTime,
       officeEndTime,
       graceMinutes,
+      officeLocation,
     } = req.body;
 
     const updateFields: any = {};
@@ -55,6 +70,14 @@ router.put('/settings', async (req: AuthRequest, res: Response) => {
     if (officeStartTime !== undefined) updateFields.officeStartTime = String(officeStartTime);
     if (officeEndTime !== undefined) updateFields.officeEndTime = String(officeEndTime);
     if (graceMinutes !== undefined) updateFields.graceMinutes = Number(graceMinutes);
+    if (officeLocation !== undefined) {
+      updateFields.officeLocation = {
+        latitude: Number(officeLocation.latitude) || 13.0827,
+        longitude: Number(officeLocation.longitude) || 80.2707,
+        radiusMeters: Number(officeLocation.radiusMeters) || 500,
+        address: String(officeLocation.address || 'Office Premises').trim(),
+      };
+    }
 
     await settings().updateOne(
       {},
@@ -269,6 +292,7 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       password,
       employeeId,
       status = 'ACTIVE',
+      workMode = 'WFO',
       basicSalary,
       grossSalary,
       pfApplicable,
@@ -296,6 +320,7 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       role: 'EMPLOYEE',
       employeeId,
       status,
+      workMode: workMode === 'WFH' ? 'WFH' : 'WFO',
       reportingManagerId: reportingManagerId ? reportingManagerId.toString() : null,
       basicSalary: basicSalary ? Number(basicSalary) : 0,
       grossSalary: grossSalary ? Number(grossSalary) : 0,
@@ -310,7 +335,7 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// --- Admin updates an employee (Full details: name, email, employeeId, password, status, salary, manager) ---
+// --- Admin updates an employee (Full details: name, email, employeeId, password, status, workMode, salary, manager) ---
 router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
   try {
     const id = new ObjectId(String(req.params.id));
@@ -320,6 +345,7 @@ router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
       password,
       employeeId,
       status,
+      workMode,
       reportingManagerId,
       basicSalary,
       grossSalary,
@@ -362,6 +388,10 @@ router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
 
     if (status !== undefined) {
       updateFields.status = status;
+    }
+
+    if (workMode !== undefined) {
+      updateFields.workMode = workMode === 'WFH' ? 'WFH' : 'WFO';
     }
 
     if (reportingManagerId !== undefined) {

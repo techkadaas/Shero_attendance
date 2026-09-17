@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { Eye, EyeOff, X, Calendar, Plus, IndianRupee, Edit, UserCheck, UserCog, Search, ShieldCheck, Users } from 'lucide-react';
+import { Eye, EyeOff, X, Calendar, Plus, IndianRupee, Edit, UserCheck, UserCog, Search, ShieldCheck, Users, Building2, Home } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AdminEmployees = () => {
@@ -18,6 +18,7 @@ const AdminEmployees = () => {
     password: '',
     employeeId: '',
     status: 'ACTIVE',
+    workMode: 'WFO',
     reportingManagerId: '',
     basicSalary: '',
     grossSalary: '',
@@ -118,6 +119,7 @@ const AdminEmployees = () => {
         password: '',
         employeeId: emp.employeeId || '',
         status: emp.status || 'ACTIVE',
+        workMode: emp.workMode || 'WFO',
         reportingManagerId: emp.reportingManager?.id || emp.reportingManagerId || '',
         basicSalary: emp.basicSalary !== undefined ? String(emp.basicSalary) : '',
         grossSalary: emp.grossSalary !== undefined ? String(emp.grossSalary) : '',
@@ -159,11 +161,11 @@ const AdminEmployees = () => {
       isOpen: true,
       employee: emp,
       data: {
-        basicSalary: emp.basicSalary || '',
-        grossSalary: emp.grossSalary || '',
-        pfApplicable: emp.pfApplicable || false,
-        esiApplicable: emp.esiApplicable || false,
-        otherDeductions: emp.otherDeductions || '',
+        basicSalary: emp.basicSalary !== undefined ? String(emp.basicSalary) : '',
+        grossSalary: emp.grossSalary !== undefined ? String(emp.grossSalary) : '',
+        pfApplicable: Boolean(emp.pfApplicable),
+        esiApplicable: Boolean(emp.esiApplicable),
+        otherDeductions: emp.otherDeductions !== undefined ? String(emp.otherDeductions) : '',
       },
     });
   };
@@ -183,11 +185,11 @@ const AdminEmployees = () => {
       await api.put(`/admin/employees/${managerModal.employee._id}/manager`, {
         reportingManagerId: managerModal.reportingManagerId || null,
       });
-      toast.success('Reporting manager assigned successfully!');
+      toast.success('Reporting manager updated!');
       setManagerModal({ isOpen: false, employee: null, reportingManagerId: '' });
       fetchEmployees();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to assign reporting manager');
+      toast.error(err.response?.data?.error || 'Failed to update reporting manager');
     }
   };
 
@@ -198,6 +200,8 @@ const AdminEmployees = () => {
       emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (statusFilter === 'ALL') return matchesSearch;
+    if (statusFilter === 'WFO') return matchesSearch && (emp.workMode === 'WFO' || !emp.workMode);
+    if (statusFilter === 'WFH') return matchesSearch && emp.workMode === 'WFH';
     return matchesSearch && emp.status === statusFilter;
   });
 
@@ -211,7 +215,7 @@ const AdminEmployees = () => {
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Staff Master Directory</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Manage credentials, reporting lines & compensation</p>
+            <p className="text-xs text-slate-500 mt-0.5">Manage work modes (WFO / WFH), credentials & compensation</p>
           </div>
         </div>
 
@@ -237,7 +241,7 @@ const AdminEmployees = () => {
         </div>
 
         <div className="flex items-center space-x-1 overflow-x-auto w-full sm:w-auto">
-          {['ALL', 'ACTIVE', 'WORKING', 'STOPPED', 'INACTIVE'].map((st) => (
+          {['ALL', 'WFO', 'WFH', 'ACTIVE', 'WORKING', 'STOPPED', 'INACTIVE'].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -247,7 +251,15 @@ const AdminEmployees = () => {
                   : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
               }`}
             >
-              {st === 'ALL' ? `All (${employees.length})` : st === 'STOPPED' ? 'On Leave' : st}
+              {st === 'ALL'
+                ? `All (${employees.length})`
+                : st === 'WFO'
+                ? `🏢 WFO Office`
+                : st === 'WFH'
+                ? `🏠 WFH Remote`
+                : st === 'STOPPED'
+                ? 'On Leave'
+                : st}
             </button>
           ))}
         </div>
@@ -261,6 +273,7 @@ const AdminEmployees = () => {
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee ID</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Work Mode</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Reporting Manager</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Gross Base</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
@@ -269,9 +282,9 @@ const AdminEmployees = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-xs">Loading directory...</td></tr>
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-xs">Loading directory...</td></tr>
               ) : filteredEmployees.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">No matching employees found.</td></tr>
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">No matching employees found.</td></tr>
               ) : (
                 filteredEmployees.map((emp) => (
                   <tr key={emp._id} className="hover:bg-slate-50/80 transition-colors">
@@ -288,6 +301,19 @@ const AdminEmployees = () => {
                           <p className="text-[10px] text-slate-400">{emp.email}</p>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {emp.workMode === 'WFH' ? (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          <Home className="w-3 h-3 mr-1 text-indigo-500" />
+                          WFH (Remote)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                          <Building2 className="w-3 h-3 mr-1 text-teal-600" />
+                          WFO (Office)
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs">
                       {emp.reportingManager ? (
@@ -317,7 +343,7 @@ const AdminEmployees = () => {
                       <button
                         onClick={() => openEditModal(emp)}
                         className="inline-flex items-center text-xs font-bold text-slate-700 hover:text-teal-700 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 transition-colors"
-                        title="Edit Employee ID, Password & Details"
+                        title="Edit Employee ID, Work Mode, Password & Details"
                       >
                         <UserCog className="w-3.5 h-3.5 mr-1 text-teal-600" /> Edit
                       </button>
@@ -374,15 +400,22 @@ const AdminEmployees = () => {
                     <p className="text-[10px] text-slate-400 font-mono">{emp.employeeId}</p>
                   </div>
                 </div>
-                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
-                  emp.status === 'ACTIVE' ? 'bg-slate-100 text-slate-700 border-slate-200' : 
-                  emp.status === 'WORKING' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                  emp.status === 'STOPPED' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                  emp.status === 'CHECKED_OUT' ? 'bg-teal-50 text-teal-700 border-teal-200' :
-                  'bg-rose-50 text-rose-700 border-rose-200'
-                }`}>
-                  {emp.status === 'STOPPED' ? 'LEAVE' : emp.status}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                    emp.workMode === 'WFH' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-teal-50 text-teal-700 border-teal-200'
+                  }`}>
+                    {emp.workMode === 'WFH' ? '🏠 WFH' : '🏢 WFO'}
+                  </span>
+                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                    emp.status === 'ACTIVE' ? 'bg-slate-100 text-slate-700 border-slate-200' : 
+                    emp.status === 'WORKING' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                    emp.status === 'STOPPED' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    emp.status === 'CHECKED_OUT' ? 'bg-teal-50 text-teal-700 border-teal-200' :
+                    'bg-rose-50 text-rose-700 border-rose-200'
+                  }`}>
+                    {emp.status === 'STOPPED' ? 'LEAVE' : emp.status}
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -442,7 +475,7 @@ const AdminEmployees = () => {
                 </div>
                 <div>
                   <h2 className="text-base font-extrabold text-slate-900">Create New Staff Profile</h2>
-                  <p className="text-[11px] text-slate-400">Initialize employee credentials and salary structure</p>
+                  <p className="text-[11px] text-slate-400">Initialize employee credentials, work mode & salary structure</p>
                 </div>
               </div>
               <button onClick={() => setShowForm(false)} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100">
@@ -472,6 +505,19 @@ const AdminEmployees = () => {
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Employee ID</label>
                   <input name="employeeId" required placeholder="EMP001" value={form.employeeId} onChange={handleChange} className="form-input font-mono" />
                 </div>
+                
+                {/* Work Mode Selector */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Work Mode</label>
+                  <select name="workMode" value={form.workMode} onChange={handleChange} className="form-input font-semibold text-slate-800">
+                    <option value="WFO">🏢 Work from Office (WFO - Geofence Enforced)</option>
+                    <option value="WFH">🏠 Work from Home (WFH - Remote Location)</option>
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {form.workMode === 'WFO' ? 'User can only login & punch in inside the office.' : 'User can login & punch from anywhere.'}
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Status</label>
                   <select name="status" value={form.status} onChange={handleChange} className="form-input">
@@ -479,7 +525,8 @@ const AdminEmployees = () => {
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
                 </div>
-                <div>
+
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Reporting Manager</label>
                   <select
                     name="reportingManagerId"
@@ -546,7 +593,7 @@ const AdminEmployees = () => {
                 </div>
                 <div>
                   <h2 className="text-base font-extrabold text-slate-900">Edit Employee Profile</h2>
-                  <p className="text-[11px] text-slate-400">Update employee ID, credentials & compensation</p>
+                  <p className="text-[11px] text-slate-400">Switch WFO / WFH, update Employee ID, credentials & compensation</p>
                 </div>
               </div>
               <button
@@ -613,6 +660,23 @@ const AdminEmployees = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* Work Mode Toggle in Edit */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Work Mode <span className="text-teal-600 font-normal lowercase">(Change WFH &harr; WFO)</span>
+                  </label>
+                  <select
+                    name="workMode"
+                    value={editModal.form.workMode}
+                    onChange={handleEditChange}
+                    className="form-input font-semibold text-slate-800"
+                  >
+                    <option value="WFO">🏢 Work from Office (WFO - Geofence Enforced)</option>
+                    <option value="WFH">🏠 Work from Home (WFH - Remote Location)</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Status</label>
                   <select
@@ -625,7 +689,8 @@ const AdminEmployees = () => {
                     <option value="INACTIVE">INACTIVE</option>
                   </select>
                 </div>
-                <div>
+
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Reporting Manager</label>
                   <select
                     name="reportingManagerId"
@@ -758,7 +823,7 @@ const AdminEmployees = () => {
                 </div>
               </div>
               
-              <div className="flex gap-6 pt-1">
+              <div className="flex gap-4 pt-1">
                 <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
                   <input type="checkbox" name="pfApplicable" checked={salaryModal.data.pfApplicable} onChange={handleSalaryChange} className="rounded text-teal-600 focus:ring-teal-500" />
                   <span>PF Applicable</span>
@@ -769,12 +834,12 @@ const AdminEmployees = () => {
                 </label>
               </div>
 
-              <div className="flex gap-3 pt-3 border-t border-slate-100">
+              <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setSalaryModal({ isOpen: false, employee: null, data: initialSalaryData })} className="btn-secondary flex-1">
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary flex-1 shadow-glow-teal">
-                  Save Configuration
+                  Save Salary
                 </button>
               </div>
             </form>
@@ -782,7 +847,7 @@ const AdminEmployees = () => {
         </div>
       )}
 
-      {/* Assign Reporting Manager Modal */}
+      {/* Edit Manager Modal */}
       {managerModal.isOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md relative p-6 space-y-4 border border-slate-100 animate-slide-up">
@@ -792,26 +857,23 @@ const AdminEmployees = () => {
                   <UserCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900">Assign Supervisor</h3>
-                  <p className="text-[11px] text-slate-400">For {managerModal.employee?.name}</p>
+                  <h3 className="text-base font-extrabold text-slate-900">Assign Reporting Line</h3>
+                  <p className="text-[11px] text-slate-400">Supervisor for {managerModal.employee?.name}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setManagerModal({ isOpen: false, employee: null, reportingManagerId: '' })}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl"
-              >
+              <button onClick={() => setManagerModal({ isOpen: false, employee: null, reportingManagerId: '' })} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleUpdateManager} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Select Reporting Manager</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Direct Supervisor</label>
                 <select
                   value={managerModal.reportingManagerId}
                   onChange={(e) => setManagerModal({ ...managerModal, reportingManagerId: e.target.value })}
                   className="form-input"
                 >
-                  <option value="">-- No Reporting Manager (Unassigned) --</option>
+                  <option value="">None (Independent / Reports to Admin)</option>
                   {managers
                     .filter((m) => m._id !== managerModal.employee?._id)
                     .map((mgr) => (
@@ -821,26 +883,19 @@ const AdminEmployees = () => {
                     ))}
                 </select>
               </div>
-
-              <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setManagerModal({ ...managerModal, reportingManagerId: '' })}
-                  className="btn-secondary"
-                >
-                  Clear
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setManagerModal({ isOpen: false, employee: null, reportingManagerId: '' })} className="btn-secondary flex-1">
+                  Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="btn-primary flex-1 shadow-glow-teal"
-                >
-                  Save Reporting Line
+                <button type="submit" className="btn-primary flex-1 shadow-glow-teal">
+                  Confirm Supervisor
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 };

@@ -5,10 +5,16 @@ export const getTodayAttendance = async () => {
   return response.data;
 };
 
-export const checkIn = async () => {
-  const response = await api.post('/attendance/check-in');
+export const checkIn = async (location?: { latitude?: number; longitude?: number }) => {
+  const payload: any = {};
+  if (location && location.latitude !== undefined && location.longitude !== undefined) {
+    payload.latitude = location.latitude;
+    payload.longitude = location.longitude;
+  }
+  const response = await api.post('/attendance/check-in', payload);
   return response.data;
 };
+
 
 export const stopSession = async () => {
   const response = await api.post('/attendance/stop');

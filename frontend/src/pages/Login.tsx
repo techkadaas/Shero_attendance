@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Eye, EyeOff, Lock, Mail, ShieldCheck, UserCheck, ArrowRight, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ShieldCheck, UserCheck, ArrowRight, Sparkles, MapPin, AlertCircle } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -12,12 +12,31 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const getCoordinates = (): Promise<{ latitude: number; longitude: number } | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        },
+        () => {
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
     try {
-      const data = await login(email, password);
+      const coords = await getCoordinates();
+      const data = await login(email, password, coords || undefined);
       if (data.user.role === 'ADMIN') {
         navigate('/admin');
       } else {
@@ -35,6 +54,7 @@ const Login = () => {
     setPassword(demoPass);
     setError('');
   };
+
 
   return (
     <div className="min-h-screen bg-slate-900 relative flex items-center justify-center p-4 overflow-hidden selection:bg-teal-500 selection:text-white">

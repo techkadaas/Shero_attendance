@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { getTodayRange, calculateDurationSeconds } from '../utils/time';
 import { attendances, attendanceEvents, workSessions, users, settings } from '../mongo';
+import { calculateDistanceMeters } from '../utils/geo';
 
 // Ensure connection is established (mongo.ts connects on import)
 
@@ -26,23 +27,66 @@ const getTodayAttendance = async (employeeId: string) => {
 router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const employeeId = req.user!.employeeId;
+    const { latitude, longitude } = req.body;
     const now = new Date();
     const existing = await getTodayAttendance(employeeId);
     if (existing) {
       return res.status(400).json({ error: 'Already checked in today' });
     }
+
+    // Geofence check for WFO employees
+    const user = await users().findOne({ employeeId });
+    const workMode = user?.workMode || 'WFO';
+    let locationData: any = null;
+
+    if (workMode === 'WFO') {
+      const currentSettings = await settings().findOne({});
+      const officeLoc = currentSettings?.officeLocation;
+      if (officeLoc && officeLoc.latitude && officeLoc.longitude && officeLoc.radiusMeters) {
+        if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
+          return res.status(400).json({
+            error: 'Office Location Required: WFO employees must check in within office premises. Please enable GPS location.',
+          });
+        }
+        const userLat = Number(latitude);
+        const userLon = Number(longitude);
+        if (isNaN(userLat) || isNaN(userLon)) {
+          return res.status(400).json({ error: 'Invalid GPS coordinates provided.' });
+        }
+        const distance = calculateDistanceMeters(userLat, userLon, officeLoc.latitude, officeLoc.longitude);
+        if (distance > officeLoc.radiusMeters) {
+          return res.status(400).json({
+            error: `Outside Office Perimeter: You are ${distance}m away (Allowed radius: ${officeLoc.radiusMeters}m). WFO employees must be in the office to punch in.`,
+            distance,
+            allowedRadius: officeLoc.radiusMeters,
+          });
+        }
+        locationData = { latitude: userLat, longitude: userLon, distanceMeters: distance };
+      }
+    } else if (latitude !== undefined && longitude !== undefined) {
+      locationData = { latitude: Number(latitude), longitude: Number(longitude) };
+    }
+
     // Create attendance record
     const attendanceResult = await attendances().insertOne({
       employeeId,
       date: now,
       checkIn: now,
       status: 'WORKING',
+      workMode,
+      location: locationData,
       totalWorkingSeconds: 0,
       totalStoppedSeconds: 0,
     });
     const attendanceId = attendanceResult.insertedId;
     // Create initial event and work session
-    await attendanceEvents().insertOne({ attendanceId, employeeId, eventType: 'CHECK_IN', timestamp: now });
+    await attendanceEvents().insertOne({ 
+      attendanceId, 
+      employeeId, 
+      eventType: 'CHECK_IN', 
+      timestamp: now,
+      location: locationData,
+    });
     await workSessions().insertOne({ attendanceId, employeeId, startTime: now });
     // Update user status
     await users().updateOne({ employeeId }, { $set: { status: 'WORKING' } });

@@ -5,7 +5,7 @@ import AttendanceCard from '../../components/attendance/AttendanceCard';
 import AttendanceTimeline from '../../components/attendance/AttendanceTimeline';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
-import { Clock4, CalendarDays, IndianRupee, Sparkles, Activity } from 'lucide-react';
+import { Clock4, CalendarDays, IndianRupee, Sparkles, Activity, Building2, Home } from 'lucide-react';
 
 const EmployeeDashboard = () => {
   const { user } = useAuth();
@@ -39,6 +39,7 @@ const EmployeeDashboard = () => {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const todayStr = format(new Date(), 'EEEE, d MMMM yyyy');
+  const workMode = attendance?.workMode || user?.workMode || 'WFO';
 
   return (
     <div className="space-y-6">
@@ -50,13 +51,29 @@ const EmployeeDashboard = () => {
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <div className="inline-flex items-center space-x-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium text-teal-200 mb-3 border border-white/10">
-              <Sparkles className="w-3.5 h-3.5 text-teal-300" />
-              <span>{todayStr}</span>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <div className="inline-flex items-center space-x-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium text-teal-200 border border-white/10">
+                <Sparkles className="w-3.5 h-3.5 text-teal-300" />
+                <span>{todayStr}</span>
+              </div>
+              <div className="inline-flex items-center space-x-1.5 bg-white/15 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-white border border-white/20">
+                {workMode === 'WFH' ? (
+                  <>
+                    <Home className="w-3.5 h-3.5 text-indigo-300" />
+                    <span>Work from Home</span>
+                  </>
+                ) : (
+                  <>
+                    <Building2 className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Work from Office</span>
+                  </>
+                )}
+              </div>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               {greeting}, {user?.name?.split(' ')[0]} 👋
             </h1>
+
             <p className="text-teal-100/80 text-xs sm:text-sm mt-1 max-w-xl">
               Welcome to your daily workstation. Track your hours and maintain an effortless work-life balance.
             </p>

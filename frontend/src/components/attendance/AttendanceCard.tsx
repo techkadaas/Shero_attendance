@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { checkIn, stopSession, resumeSession, checkOut } from '../../services/attendanceService';
 import LiveTimer from './LiveTimer';
 import { formatTime, formatDuration } from '../../utils/timeUtils';
-import { LogIn, Coffee, Play, LogOut, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { LogIn, Coffee, Play, LogOut, CheckCircle2, Clock, AlertCircle, Building2, Home } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface AttendanceCardProps {
@@ -11,11 +12,48 @@ interface AttendanceCardProps {
 }
 
 const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }) => {
+  const { user } = useAuth();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const status = attendance?.status || 'NOT_CHECKED_IN';
+  const workMode = attendance?.workMode || user?.workMode || 'WFO';
   
+  const getCoordinates = (): Promise<{ latitude: number; longitude: number } | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        },
+        () => {
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 6000 }
+      );
+    });
+  };
+
+  const handleCheckIn = async () => {
+    setLoadingAction('Check In');
+    setError(null);
+    try {
+      const coords = await getCoordinates();
+      await checkIn(coords || undefined);
+      toast.success('Checked in successfully! Have a great day.');
+      onRefresh();
+    } catch (err: any) {
+      const msg = err.response?.data?.error || 'Failed to check in';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
   const handleAction = async (actionFn: () => Promise<any>, actionName: string, successMsg: string) => {
     setLoadingAction(actionName);
     setError(null);
@@ -88,7 +126,18 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">Live work timer and attendance state management</p>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+          {workMode === 'WFH' ? (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <Home className="w-3 h-3 mr-1 text-indigo-500" />
+              WFH Remote
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200">
+              <Building2 className="w-3 h-3 mr-1 text-teal-600" />
+              WFO Office
+            </span>
+          )}
           {getStatusBadge()}
         </div>
       </div>
@@ -108,18 +157,21 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
           </div>
           <h3 className="text-base font-bold text-slate-900 mb-1">Ready to start your day?</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mb-6">
-            Click the button below to record your official check-in timestamp and begin tracking your active work hours.
+            {workMode === 'WFO' 
+              ? 'Click below to capture your GPS location at the office and begin tracking your active work hours.'
+              : 'Click below to record your official check-in timestamp and begin tracking your active work hours.'}
           </p>
           <button
-            onClick={() => handleAction(checkIn, 'Check In', 'Checked in successfully! Have a great day.')}
+            onClick={handleCheckIn}
             disabled={loadingAction !== null}
             className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-sm rounded-xl shadow-glow-teal active:scale-[0.98] transition-all inline-flex items-center justify-center space-x-2 disabled:opacity-60"
           >
             <LogIn className="w-4 h-4" />
-            <span>{loadingAction === 'Check In' ? 'Recording Check-in...' : 'CHECK IN NOW'}</span>
+            <span>{loadingAction === 'Check In' ? 'Verifying Location & Checking In...' : 'CHECK IN NOW'}</span>
           </button>
         </div>
       ) : (
+
         /* State Machine: Active Work Day */
         <div className="space-y-6 my-6">
           {/* Key Metrics Grid */}

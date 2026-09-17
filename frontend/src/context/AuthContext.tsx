@@ -9,12 +9,13 @@ export interface User {
   employeeId?: string;
   hourlyRate?: number;
   status?: string;
+  workMode?: 'WFO' | 'WFH';
   [key: string]: any;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<any>;
+  login: (email: string, password: string, location?: { latitude?: number; longitude?: number }) => Promise<any>;
   logout: () => void;
   loading: boolean;
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
@@ -41,8 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const data = await loginService(email, password);
+  const login = async (email: string, password: string, location?: { latitude?: number; longitude?: number }) => {
+    const data = await loginService(email, password, location);
     setUser(data.user);
     return data;
   };
@@ -66,4 +67,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
 

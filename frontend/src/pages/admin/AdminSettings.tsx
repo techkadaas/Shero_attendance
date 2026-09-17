@@ -10,8 +10,11 @@ import {
   Save, 
   RefreshCw, 
   Calculator,
-  CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  MapPin,
+  Navigation,
+  Building2,
+  Compass
 } from 'lucide-react';
 
 const AdminSettings = () => {
@@ -23,9 +26,16 @@ const AdminSettings = () => {
     officeStartTime: '09:00',
     officeEndTime: '18:00',
     graceMinutes: 15,
+    officeLocation: {
+      latitude: 13.0827,
+      longitude: 80.2707,
+      radiusMeters: 500,
+      address: 'Shero Home Food Head Office',
+    },
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [detectingLocation, setDetectingLocation] = useState(false);
   const [sampleSalary, setSampleSalary] = useState(25000);
 
   useEffect(() => {
@@ -40,12 +50,46 @@ const AdminSettings = () => {
         officeStartTime: res.data.officeStartTime || '09:00',
         officeEndTime: res.data.officeEndTime || '18:00',
         graceMinutes: res.data.graceMinutes ?? 15,
+        officeLocation: {
+          latitude: res.data.officeLocation?.latitude ?? 13.0827,
+          longitude: res.data.officeLocation?.longitude ?? 80.2707,
+          radiusMeters: res.data.officeLocation?.radiusMeters ?? 500,
+          address: res.data.officeLocation?.address || 'Shero Home Food Head Office',
+        },
       });
     } catch (error) {
       toast.error('Failed to load settings');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+    setDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setSettings((prev) => ({
+          ...prev,
+          officeLocation: {
+            ...prev.officeLocation,
+            latitude: Number(latitude.toFixed(6)),
+            longitude: Number(longitude.toFixed(6)),
+          },
+        }));
+        setDetectingLocation(false);
+        toast.success(`Current GPS coordinates captured! (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
+      },
+      (err) => {
+        setDetectingLocation(false);
+        toast.error('Unable to retrieve location. Please allow browser location access.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -72,7 +116,7 @@ const AdminSettings = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500">
         <div className="w-10 h-10 border-4 border-teal-500/20 border-t-teal-600 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-medium">Loading statutory configurations...</p>
+        <p className="text-sm font-medium">Loading system configurations...</p>
       </div>
     );
   }
@@ -88,10 +132,10 @@ const AdminSettings = () => {
             Global Configurations
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-white">
-            Statutory & Shift Settings
+            System & Geofence Settings
           </h1>
           <p className="text-slate-300 text-sm mt-1 max-w-xl">
-            Configure automated compliance deductions (PF & ESI) and define standard working hours with late grace limits.
+            Configure automated compliance deductions, shift benchmarks, and set office geofencing for WFO employees.
           </p>
         </div>
         <div className="relative z-10 flex items-center gap-3">
@@ -107,6 +151,145 @@ const AdminSettings = () => {
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
+        
+        {/* Office Geolocation & Geofencing Card */}
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-8 space-y-6 hover:shadow-card-hover transition-all">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold shadow-xs">
+                <MapPin className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  Office Geofence & Location Boundary
+                  <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200/80">
+                    WFO Security
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  WFO employees can only log in and mark attendance within this physical office perimeter.
+                </p>
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleDetectLocation}
+              disabled={detectingLocation}
+              className="px-4 py-2 bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2 active:scale-95 shrink-0"
+            >
+              <Navigation className={`w-3.5 h-3.5 text-teal-600 ${detectingLocation ? 'animate-spin' : ''}`} />
+              {detectingLocation ? 'Detecting GPS...' : 'Use My Current Location'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Office Name / Address Label</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={settings.officeLocation.address}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    officeLocation: { ...settings.officeLocation, address: e.target.value }
+                  })}
+                  className="form-input pl-10"
+                  placeholder="e.g. Shero HQ, Anna Nagar, Chennai"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Displayed to employees during geofence verification.</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Latitude</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Compass className="w-4 h-4" />
+                </div>
+                <input
+                  type="number"
+                  step="0.000001"
+                  required
+                  value={settings.officeLocation.latitude}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    officeLocation: { ...settings.officeLocation, latitude: parseFloat(e.target.value) || 0 }
+                  })}
+                  className="form-input pl-10 font-mono font-medium text-slate-800"
+                  placeholder="13.0827"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">GPS latitude coordinate</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Longitude</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Compass className="w-4 h-4" />
+                </div>
+                <input
+                  type="number"
+                  step="0.000001"
+                  required
+                  value={settings.officeLocation.longitude}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    officeLocation: { ...settings.officeLocation, longitude: parseFloat(e.target.value) || 0 }
+                  })}
+                  className="form-input pl-10 font-mono font-medium text-slate-800"
+                  placeholder="80.2707"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">GPS longitude coordinate</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-2">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Allowed Geofence Radius (Meters)</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="20"
+                  max="10000"
+                  step="10"
+                  required
+                  value={settings.officeLocation.radiusMeters}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    officeLocation: { ...settings.officeLocation, radiusMeters: parseInt(e.target.value) || 100 }
+                  })}
+                  className="form-input font-mono font-bold text-slate-800"
+                />
+                <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+                  <span className="text-xs text-slate-400 font-medium">meters</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Distance allowance from center coordinate (e.g. 500m).</p>
+            </div>
+
+            <div className="sm:col-span-2 flex items-center">
+              <div className="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 flex items-start gap-2.5 text-xs text-slate-600">
+                <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-slate-800">Policy Rules:</span>
+                  <ul className="list-disc pl-4 mt-1 space-y-0.5 text-slate-500 text-[11px]">
+                    <li><strong className="text-teal-700">WFO Employees:</strong> Blocked from logging in or punching in if outside the {settings.officeLocation.radiusMeters}m office radius.</li>
+                    <li><strong className="text-indigo-700">WFH Employees:</strong> Can log in and punch in from any location without geofencing restrictions.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Statutory PF & ESI Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* PF Settings Card */}
@@ -188,7 +371,7 @@ const AdminSettings = () => {
 
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex items-start gap-2.5 text-xs text-slate-600">
               <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-              <span>Deductions update instantly on monthly payroll cycles without modifying existing historical payslips.</span>
+              <span>Deductions update automatically during monthly payroll generation.</span>
             </div>
           </div>
 
@@ -271,7 +454,7 @@ const AdminSettings = () => {
 
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex items-start gap-2.5 text-xs text-slate-600">
               <HelpCircle className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-              <span>Employees with gross monthly salary exceeding ₹21,000 are automatically exempted from ESI.</span>
+              <span>Gross monthly salary exceeding ₹21,000 is automatically exempted from ESI.</span>
             </div>
           </div>
 
@@ -452,4 +635,5 @@ const AdminSettings = () => {
 };
 
 export default AdminSettings;
+
 
