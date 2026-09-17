@@ -104,11 +104,54 @@ export const AttendanceReminderAndPWA: React.FC = () => {
 
   // Notification Check loop
   useEffect(() => {
-    if (!user || user.role === 'ADMIN') return;
+    if (!user) return;
 
     const checkAttendanceAndRemind = async () => {
       try {
         const { dateStr, totalMins, isWorkingDay } = getCurrentIST();
+
+        // 5:00 PM (17:00 IST = 1020 total minutes) - ONE-TIME WELCOME TEST NOTIFICATION FOR ALL USERS INCLUDING HR
+        const welcomeSentKey = 'shero_welcome_notification_5pm_sent';
+        if (totalMins >= 1020 && localStorage.getItem(welcomeSentKey) !== 'true') {
+          localStorage.setItem(welcomeSentKey, 'true');
+
+          const welcomeTitle = 'Shero Home Food — Welcome! 👋';
+          const welcomeBody = 'Welcome to Shero Attendance System! Your attendance and workforce portal is live and ready.';
+
+          // In-App Toast
+          toast.success(welcomeBody, {
+            duration: 9000,
+            icon: '🎉',
+          });
+
+          // System / Mobile Push Notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              const options: any = {
+                body: welcomeBody,
+                icon: '/logo.png',
+                badge: '/logo.png',
+                vibrate: [300, 100, 300, 100, 300],
+                tag: 'shero-welcome-5pm',
+                renotify: true,
+                requireInteraction: true,
+              };
+
+              if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                const reg = await navigator.serviceWorker.ready;
+                await reg.showNotification(welcomeTitle, options);
+              } else {
+                new Notification(welcomeTitle, options);
+              }
+            } catch (e) {
+              console.log('Welcome notification trigger error:', e);
+            }
+          }
+        }
+
+        // Employee-specific sign-in/sign-out reminders (skipped for HR/Admin)
+        if (user.role === 'ADMIN') return;
+
         const data = await getTodayAttendance();
         const status = data?.attendance?.status || 'NOT_CHECKED_IN';
 
@@ -122,20 +165,19 @@ export const AttendanceReminderAndPWA: React.FC = () => {
             // Send Android/Browser Push Notification if allowed
             if ('Notification' in window && Notification.permission === 'granted') {
               try {
+                const options: any = {
+                  body: 'Still you did not sign in today! Please mark your attendance.',
+                  icon: '/logo.png',
+                  badge: '/logo.png',
+                  vibrate: [300, 100, 300],
+                  tag: 'signin-reminder',
+                };
                 if (navigator.serviceWorker && navigator.serviceWorker.controller) {
                   navigator.serviceWorker.ready.then((reg) => {
-                    reg.showNotification('Shero Attendance Reminder', {
-                      body: 'Still you did not sign in today! Please mark your attendance.',
-                      icon: '/logo.png',
-                      badge: '/logo.png',
-                      tag: 'signin-reminder',
-                    });
+                    reg.showNotification('Shero Attendance Reminder', options);
                   });
                 } else {
-                  new Notification('Shero Attendance Reminder', {
-                    body: 'Still you did not sign in today! Please mark your attendance.',
-                    icon: '/logo.png',
-                  });
+                  new Notification('Shero Attendance Reminder', options);
                 }
               } catch (e) {
                 console.log('Notification trigger error: ', e);
@@ -155,20 +197,19 @@ export const AttendanceReminderAndPWA: React.FC = () => {
             // Send Android/Browser Push Notification if allowed
             if ('Notification' in window && Notification.permission === 'granted') {
               try {
+                const options: any = {
+                  body: 'Still you did not sign out! Please remember to sign out for today.',
+                  icon: '/logo.png',
+                  badge: '/logo.png',
+                  vibrate: [300, 100, 300],
+                  tag: 'signout-reminder',
+                };
                 if (navigator.serviceWorker && navigator.serviceWorker.controller) {
                   navigator.serviceWorker.ready.then((reg) => {
-                    reg.showNotification('Shero Attendance Reminder', {
-                      body: 'Still you did not sign out! Please remember to sign out for today.',
-                      icon: '/logo.png',
-                      badge: '/logo.png',
-                      tag: 'signout-reminder',
-                    });
+                    reg.showNotification('Shero Attendance Reminder', options);
                   });
                 } else {
-                  new Notification('Shero Attendance Reminder', {
-                    body: 'Still you did not sign out! Please remember to sign out for today.',
-                    icon: '/logo.png',
-                  });
+                  new Notification('Shero Attendance Reminder', options);
                 }
               } catch (e) {
                 console.log('Notification trigger error: ', e);
@@ -190,9 +231,9 @@ export const AttendanceReminderAndPWA: React.FC = () => {
       }
     };
 
-    // Run initial check and set interval every 25 seconds
+    // Run check immediately and every 10 seconds
     checkAttendanceAndRemind();
-    const interval = setInterval(checkAttendanceAndRemind, 25000);
+    const interval = setInterval(checkAttendanceAndRemind, 10000);
     return () => clearInterval(interval);
   }, [user, dismissedKey, reminderType]);
 
