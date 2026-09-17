@@ -18,7 +18,7 @@ import EmployeePermissions from './pages/employee/EmployeePermissions';
 import AdminPermissions from './pages/admin/AdminPermissions';
 import { Toaster } from 'react-hot-toast';
 
-const PrivateRoute = ({ children, role }: { children: JSX.Element, role?: string }) => {
+const PrivateRoute = ({ children, role }: { children: React.ReactElement, role?: string }) => {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" />;

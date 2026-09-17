@@ -1,10 +1,29 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getCurrentUser, login as loginService, logout as logoutService } from '../services/authService';
 
-const AuthContext = createContext(null);
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'EMPLOYEE';
+  employeeId?: string;
+  hourlyRate?: number;
+  status?: string;
+  [key: string]: any;
+}
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, password: string) => Promise<any>;
+  logout: () => void;
+  loading: boolean;
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,7 +41,7 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (email: string, password: string) => {
     const data = await loginService(email, password);
     setUser(data.user);
     return data;
@@ -40,4 +59,11 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+

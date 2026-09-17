@@ -30,7 +30,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
     setCurrentSeconds(baseSeconds);
 
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval> | undefined;
     
     if (status === 'WORKING') {
       interval = setInterval(() => {
