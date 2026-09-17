@@ -1,7 +1,15 @@
 import { MongoClient, Db, Collection, Document } from 'mongodb';
 import dotenv from 'dotenv';
+import dns from 'dns';
 
 dotenv.config();
+
+// Ensure reliable SRV resolution across all networks
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (e) {
+  // Ignore if custom servers cannot be set
+}
 
 const uri = process.env.MONGO_URI as string;
 if (!uri) {
@@ -15,8 +23,8 @@ export const connectMongo = async (): Promise<Db> => {
   if (db) return db;
   client = new MongoClient(uri);
   await client.connect();
-  db = client.db(); // defaults to db name from URI
-  console.log('✅ Connected to MongoDB');
+  db = client.db('attendance'); // Explicitly use 'attendance' database
+  console.log('✅ Connected to MongoDB Atlas (database: attendance)');
   return db;
 };
 
