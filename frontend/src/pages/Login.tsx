@@ -67,22 +67,30 @@ const Login = () => {
         {/* Brand Card */}
         <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 sm:p-10">
           
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-500 shadow-glow-teal p-0.5 mb-4 group">
-              <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center overflow-hidden p-2">
-                <img src="/logo.png" alt="Shero Home Food" className="max-h-full max-w-full object-contain" onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }} />
-                <span className="text-teal-700 font-extrabold text-xl tracking-tight">SH</span>
+          {/* Header & Full Brand Logo */}
+          <div className="text-center mb-7">
+            <div className="flex items-center justify-center mb-3">
+              <div className="p-3 bg-slate-50/80 rounded-2xl border border-slate-100 shadow-xs inline-flex items-center justify-center">
+                <img 
+                  src="/logo.png" 
+                  alt="Shero Home Food" 
+                  className="h-12 sm:h-14 w-auto max-w-[180px] object-contain drop-shadow-xs" 
+                  onError={(e) => {
+                    const target = e.target as HTMLElement;
+                    target.style.display = 'none';
+                    const fallback = target.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = 'block';
+                  }} 
+                />
+                <span className="hidden text-teal-700 font-extrabold text-2xl tracking-tight">Shero Home Food</span>
               </div>
             </div>
             
             <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              Shero Attendance
+              Attendance & HR Portal
             </h1>
             <p className="text-xs text-slate-500 mt-1">
-              Sign in to manage your attendance & daily logs
+              Sign in to manage your attendance, shifts & payroll
             </p>
           </div>
 

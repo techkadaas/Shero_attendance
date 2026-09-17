@@ -31,13 +31,19 @@ const EmployeeLayout = () => {
             {/* Brand Logo & Desktop Nav */}
             <div className="flex items-center space-x-8">
               <Link to="/employee" className="flex items-center space-x-3 group">
-                <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 p-0.5 shadow-sm group-hover:scale-105 transition-transform flex items-center justify-center">
-                  <div className="w-full h-full bg-white rounded-[10px] flex items-center justify-center overflow-hidden">
-                    <img src="/logo.png" alt="Shero Home Food" className="h-6 object-contain" onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }} />
-                    <span className="text-teal-700 font-extrabold text-sm tracking-tight">SH</span>
-                  </div>
+                <div className="h-9 px-2 bg-slate-50 border border-slate-200/80 rounded-xl shadow-2xs group-hover:scale-105 transition-transform flex items-center justify-center">
+                  <img 
+                    src="/logo.png" 
+                    alt="Shero Home Food" 
+                    className="h-6 w-auto max-w-[100px] object-contain" 
+                    onError={(e) => {
+                      const target = e.target as HTMLElement;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'block';
+                    }} 
+                  />
+                  <span className="hidden text-teal-700 font-extrabold text-sm tracking-tight">SHERO</span>
                 </div>
                 <div>
                   <span className="font-bold text-slate-900 text-sm tracking-tight block">Shero Home Food</span>

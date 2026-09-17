@@ -466,359 +466,483 @@ const AdminEmployees = () => {
 
       {/* Create Employee Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fade-in">
-          <div className="bg-white w-full sm:rounded-3xl shadow-2xl sm:max-w-2xl relative max-h-screen overflow-y-auto border border-slate-100 animate-slide-up">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100">
-              <div className="flex items-center space-x-2">
-                <div className="p-2.5 bg-teal-50 rounded-xl text-teal-700">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-2xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100 animate-slide-up">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100 bg-slate-50/50 shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center font-bold">
                   <Plus className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-extrabold text-slate-900">Create New Staff Profile</h2>
-                  <p className="text-[11px] text-slate-400">Initialize employee credentials, work mode & salary structure</p>
+                  <h2 className="text-base font-extrabold text-slate-900">Add New Employee</h2>
+                  <p className="text-xs text-slate-500">Configure profile, work mode policy & compensation</p>
                 </div>
               </div>
-              <button onClick={() => setShowForm(false)} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100">
+              <button 
+                onClick={() => setShowForm(false)} 
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Name</label>
-                  <input name="name" required placeholder="John Doe" value={form.name} onChange={handleChange} className="form-input" />
+
+            {/* Modal Body */}
+            <form id="createEmployeeForm" onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto flex-1">
+              
+              {/* Section 1: Work Mode Selection (Top Priority) */}
+              <div className="space-y-2.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Select Work Mode Policy
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, workMode: 'WFO' })}
+                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start space-x-3 ${
+                      form.workMode === 'WFO'
+                        ? 'bg-teal-50/80 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl shrink-0 ${form.workMode === 'WFO' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-slate-900">Work from Office (WFO)</p>
+                        {form.workMode === 'WFO' && <span className="w-2 h-2 rounded-full bg-teal-600"></span>}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                        Strict Office Geofencing. Login & punch in only allowed inside office radius.
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, workMode: 'WFH' })}
+                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start space-x-3 ${
+                      form.workMode === 'WFH'
+                        ? 'bg-indigo-50/80 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl shrink-0 ${form.workMode === 'WFH' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      <Home className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-slate-900">Work from Home (WFH)</p>
+                        {form.workMode === 'WFH' && <span className="w-2 h-2 rounded-full bg-indigo-600"></span>}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                        Remote Attendance. Can login and record attendance from any location.
+                      </p>
+                    </div>
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email Address</label>
-                  <input name="email" required placeholder="john@company.com" type="email" value={form.email} onChange={handleChange} className="form-input" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password</label>
-                  <div className="relative">
-                    <input name="password" required placeholder="••••••••" type={showPassword ? 'text' : 'password'} value={form.password} onChange={handleChange} className="form-input pr-10" />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+              </div>
+
+              {/* Section 2: Account Details */}
+              <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100 space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Basic Credentials & Organization
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+                    <input name="name" required placeholder="e.g. John Doe" value={form.name} onChange={handleChange} className="form-input" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                    <input name="email" required placeholder="john@company.com" type="email" value={form.email} onChange={handleChange} className="form-input" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Employee ID</label>
+                    <input name="employeeId" required placeholder="EMP001" value={form.employeeId} onChange={handleChange} className="form-input font-mono" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+                    <div className="relative">
+                      <input name="password" required placeholder="••••••••" type={showPassword ? 'text' : 'password'} value={form.password} onChange={handleChange} className="form-input pr-10" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status</label>
+                    <select name="status" value={form.status} onChange={handleChange} className="form-input">
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Reporting Manager</label>
+                    <select
+                      name="reportingManagerId"
+                      value={form.reportingManagerId}
+                      onChange={handleChange}
+                      className="form-input"
+                    >
+                      <option value="">None (Independent / Admin)</option>
+                      {managers.map((mgr) => (
+                        <option key={mgr._id} value={mgr._id}>
+                          {mgr.name} ({mgr.employeeId}) {mgr.role === 'ADMIN' ? '— Admin' : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Employee ID</label>
-                  <input name="employeeId" required placeholder="EMP001" value={form.employeeId} onChange={handleChange} className="form-input font-mono" />
-                </div>
-                
-                {/* Work Mode Selector */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Work Mode</label>
-                  <select name="workMode" value={form.workMode} onChange={handleChange} className="form-input font-semibold text-slate-800">
-                    <option value="WFO">🏢 Work from Office (WFO - Geofence Enforced)</option>
-                    <option value="WFH">🏠 Work from Home (WFH - Remote Location)</option>
-                  </select>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    {form.workMode === 'WFO' ? 'User can only login & punch in inside the office.' : 'User can login & punch from anywhere.'}
-                  </p>
-                </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Status</label>
-                  <select name="status" value={form.status} onChange={handleChange} className="form-input">
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                  </select>
+              {/* Section 3: Payroll & Compliance */}
+              <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100 space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Compensation & Compliance
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Gross Salary (Monthly)</label>
+                    <input name="grossSalary" type="number" required placeholder="e.g. 50000" value={form.grossSalary} onChange={handleChange} className="form-input font-mono" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Basic Salary (Monthly)</label>
+                    <input name="basicSalary" type="number" required placeholder="e.g. 25000" value={form.basicSalary} onChange={handleChange} className="form-input font-mono" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Other Deductions</label>
+                    <input name="otherDeductions" type="number" placeholder="e.g. 500" value={form.otherDeductions} onChange={handleChange} className="form-input font-mono" />
+                  </div>
                 </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Reporting Manager</label>
-                  <select
-                    name="reportingManagerId"
-                    value={form.reportingManagerId}
-                    onChange={handleChange}
-                    className="form-input"
-                  >
-                    <option value="">None (No Manager)</option>
-                    {managers.map((mgr) => (
-                      <option key={mgr._id} value={mgr._id}>
-                        {mgr.name} ({mgr.employeeId}) {mgr.role === 'ADMIN' ? '— Admin' : ''}
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex gap-6 pt-1">
+                  <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                    <input type="checkbox" name="pfApplicable" checked={form.pfApplicable} onChange={handleChange} className="rounded text-teal-600 focus:ring-teal-500" />
+                    <span>Provident Fund (PF) Applicable</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                    <input type="checkbox" name="esiApplicable" checked={form.esiApplicable} onChange={handleChange} className="rounded text-teal-600 focus:ring-teal-500" />
+                    <span>ESI Health Insurance Applicable</span>
+                  </label>
                 </div>
               </div>
 
-              <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2 pt-3">
-                Payroll Configuration
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Gross Salary (Monthly)</label>
-                  <input name="grossSalary" type="number" required placeholder="e.g. 50000" value={form.grossSalary} onChange={handleChange} className="form-input font-mono" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Basic Salary (Monthly)</label>
-                  <input name="basicSalary" type="number" required placeholder="e.g. 25000" value={form.basicSalary} onChange={handleChange} className="form-input font-mono" />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Other Deductions (Monthly Fixed)</label>
-                  <input name="otherDeductions" type="number" placeholder="e.g. 500" value={form.otherDeductions} onChange={handleChange} className="form-input font-mono" />
-                </div>
-              </div>
-              <div className="flex gap-6 pt-1">
-                <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                  <input type="checkbox" name="pfApplicable" checked={form.pfApplicable} onChange={handleChange} className="rounded text-teal-600 focus:ring-teal-500" />
-                  <span>PF Applicable</span>
-                </label>
-                <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                  <input type="checkbox" name="esiApplicable" checked={form.esiApplicable} onChange={handleChange} className="rounded text-teal-600 focus:ring-teal-500" />
-                  <span>ESI Applicable</span>
-                </label>
-              </div>
-
-              <div className="pt-3">
-                <button type="submit" className="w-full btn-primary py-3 shadow-glow-teal">
-                  Create Employee Profile
-                </button>
-              </div>
             </form>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
+              <button 
+                type="button" 
+                onClick={() => setShowForm(false)} 
+                className="btn-secondary px-5 py-2.5 text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                form="createEmployeeForm" 
+                className="btn-primary px-6 py-2.5 text-xs font-bold shadow-glow-teal"
+              >
+                Create Staff Member
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Edit Full Employee Modal */}
       {editModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fade-in">
-          <div className="bg-white w-full sm:rounded-3xl shadow-2xl sm:max-w-2xl relative max-h-screen overflow-y-auto border border-slate-100 animate-slide-up">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100">
-              <div className="flex items-center space-x-2">
-                <div className="p-2.5 bg-teal-50 rounded-xl text-teal-700">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-2xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100 animate-slide-up">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100 bg-slate-50/50 shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center font-bold">
                   <UserCog className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-extrabold text-slate-900">Edit Employee Profile</h2>
-                  <p className="text-[11px] text-slate-400">Switch WFO / WFH, update Employee ID, credentials & compensation</p>
+                  <h2 className="text-base font-extrabold text-slate-900">Edit Staff Profile</h2>
+                  <p className="text-xs text-slate-500">Switch WFO / WFH mode, update ID & credentials</p>
                 </div>
               </div>
               <button
                 onClick={() => setEditModal({ isOpen: false, employee: null, form: initialForm, showPassword: false })}
-                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100"
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleUpdateEmployee} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Name</label>
-                  <input
-                    name="name"
-                    required
-                    value={editModal.form.name}
-                    onChange={handleEditChange}
-                    className="form-input"
-                  />
+
+            {/* Modal Body */}
+            <form id="editEmployeeForm" onSubmit={handleUpdateEmployee} className="p-6 space-y-6 overflow-y-auto flex-1">
+              
+              {/* Section 1: Work Mode Selection (HR Can Change Anytime) */}
+              <div className="space-y-2.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Work Mode Policy <span className="text-teal-600 font-normal lowercase">(Click to switch mode)</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditModal({ ...editModal, form: { ...editModal.form, workMode: 'WFO' } })}
+                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start space-x-3 ${
+                      editModal.form.workMode === 'WFO'
+                        ? 'bg-teal-50/80 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl shrink-0 ${editModal.form.workMode === 'WFO' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-slate-900">Work from Office (WFO)</p>
+                        {editModal.form.workMode === 'WFO' && <span className="w-2 h-2 rounded-full bg-teal-600"></span>}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                        Geofencing Enforced. Login & attendance only allowed at office location.
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditModal({ ...editModal, form: { ...editModal.form, workMode: 'WFH' } })}
+                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start space-x-3 ${
+                      editModal.form.workMode === 'WFH'
+                        ? 'bg-indigo-50/80 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl shrink-0 ${editModal.form.workMode === 'WFH' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      <Home className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-slate-900">Work from Home (WFH)</p>
+                        {editModal.form.workMode === 'WFH' && <span className="w-2 h-2 rounded-full bg-indigo-600"></span>}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                        Remote Attendance. Employee can log in and punch from anywhere.
+                      </p>
+                    </div>
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email Address</label>
-                  <input
-                    name="email"
-                    required
-                    type="email"
-                    value={editModal.form.email}
-                    onChange={handleEditChange}
-                    className="form-input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Employee ID <span className="text-teal-600 font-normal lowercase">(Editable)</span>
-                  </label>
-                  <input
-                    name="employeeId"
-                    required
-                    value={editModal.form.employeeId}
-                    onChange={handleEditChange}
-                    className="form-input font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    New Password <span className="text-slate-400 font-normal lowercase">(leave blank to keep)</span>
-                  </label>
-                  <div className="relative">
+              </div>
+
+              {/* Section 2: Account Details */}
+              <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100 space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Basic Credentials & Organization
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
                     <input
-                      name="password"
-                      placeholder="Enter new password"
-                      type={editModal.showPassword ? 'text' : 'password'}
-                      value={editModal.form.password}
+                      name="name"
+                      required
+                      value={editModal.form.name}
                       onChange={handleEditChange}
-                      className="form-input pr-10"
+                      className="form-input"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setEditModal({ ...editModal, showPassword: !editModal.showPassword })}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                    <input
+                      name="email"
+                      required
+                      type="email"
+                      value={editModal.form.email}
+                      onChange={handleEditChange}
+                      className="form-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Employee ID <span className="text-teal-600 font-normal lowercase">(Editable)</span>
+                    </label>
+                    <input
+                      name="employeeId"
+                      required
+                      value={editModal.form.employeeId}
+                      onChange={handleEditChange}
+                      className="form-input font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      New Password <span className="text-slate-400 font-normal lowercase">(leave empty to retain)</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        name="password"
+                        placeholder="Enter new password"
+                        type={editModal.showPassword ? 'text' : 'password'}
+                        value={editModal.form.password}
+                        onChange={handleEditChange}
+                        className="form-input pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditModal({ ...editModal, showPassword: !editModal.showPassword })}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {editModal.showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status</label>
+                    <select
+                      name="status"
+                      value={editModal.form.status}
+                      onChange={handleEditChange}
+                      className="form-input"
                     >
-                      {editModal.showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Reporting Manager</label>
+                    <select
+                      name="reportingManagerId"
+                      value={editModal.form.reportingManagerId}
+                      onChange={handleEditChange}
+                      className="form-input"
+                    >
+                      <option value="">None (Independent / Admin)</option>
+                      {managers
+                        .filter((m) => m._id !== editModal.employee?._id)
+                        .map((mgr) => (
+                          <option key={mgr._id} value={mgr._id}>
+                            {mgr.name} ({mgr.employeeId}) {mgr.role === 'ADMIN' ? '— Admin' : ''}
+                          </option>
+                        ))}
+                    </select>
                   </div>
                 </div>
+              </div>
 
-                {/* Work Mode Toggle in Edit */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Work Mode <span className="text-teal-600 font-normal lowercase">(Change WFH &harr; WFO)</span>
+              {/* Section 3: Payroll & Deductions */}
+              <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100 space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Compensation & Deductions
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Gross Salary (Monthly)</label>
+                    <input
+                      name="grossSalary"
+                      type="number"
+                      value={editModal.form.grossSalary}
+                      onChange={handleEditChange}
+                      className="form-input font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Basic Salary (Monthly)</label>
+                    <input
+                      name="basicSalary"
+                      type="number"
+                      value={editModal.form.basicSalary}
+                      onChange={handleEditChange}
+                      className="form-input font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Other Deductions</label>
+                    <input
+                      name="otherDeductions"
+                      type="number"
+                      value={editModal.form.otherDeductions}
+                      onChange={handleEditChange}
+                      className="form-input font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-6 pt-1">
+                  <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="pfApplicable"
+                      checked={editModal.form.pfApplicable}
+                      onChange={handleEditChange}
+                      className="rounded text-teal-600 focus:ring-teal-500"
+                    />
+                    <span>PF Applicable</span>
                   </label>
-                  <select
-                    name="workMode"
-                    value={editModal.form.workMode}
-                    onChange={handleEditChange}
-                    className="form-input font-semibold text-slate-800"
-                  >
-                    <option value="WFO">🏢 Work from Office (WFO - Geofence Enforced)</option>
-                    <option value="WFH">🏠 Work from Home (WFH - Remote Location)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Status</label>
-                  <select
-                    name="status"
-                    value={editModal.form.status}
-                    onChange={handleEditChange}
-                    className="form-input"
-                  >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Reporting Manager</label>
-                  <select
-                    name="reportingManagerId"
-                    value={editModal.form.reportingManagerId}
-                    onChange={handleEditChange}
-                    className="form-input"
-                  >
-                    <option value="">None (No Manager)</option>
-                    {managers
-                      .filter((m) => m._id !== editModal.employee?._id)
-                      .map((mgr) => (
-                        <option key={mgr._id} value={mgr._id}>
-                          {mgr.name} ({mgr.employeeId}) {mgr.role === 'ADMIN' ? '— Admin' : ''}
-                        </option>
-                      ))}
-                  </select>
+                  <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="esiApplicable"
+                      checked={editModal.form.esiApplicable}
+                      onChange={handleEditChange}
+                      className="rounded text-teal-600 focus:ring-teal-500"
+                    />
+                    <span>ESI Applicable</span>
+                  </label>
                 </div>
               </div>
 
-              <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2 pt-3">
-                Payroll Configuration
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Gross Salary (Monthly)</label>
-                  <input
-                    name="grossSalary"
-                    type="number"
-                    value={editModal.form.grossSalary}
-                    onChange={handleEditChange}
-                    className="form-input font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Basic Salary (Monthly)</label>
-                  <input
-                    name="basicSalary"
-                    type="number"
-                    value={editModal.form.basicSalary}
-                    onChange={handleEditChange}
-                    className="form-input font-mono"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Other Deductions</label>
-                  <input
-                    name="otherDeductions"
-                    type="number"
-                    value={editModal.form.otherDeductions}
-                    onChange={handleEditChange}
-                    className="form-input font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-6 pt-1">
-                <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="pfApplicable"
-                    checked={editModal.form.pfApplicable}
-                    onChange={handleEditChange}
-                    className="rounded text-teal-600 focus:ring-teal-500"
-                  />
-                  <span>PF Applicable</span>
-                </label>
-                <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="esiApplicable"
-                    checked={editModal.form.esiApplicable}
-                    onChange={handleEditChange}
-                    className="rounded text-teal-600 focus:ring-teal-500"
-                  />
-                  <span>ESI Applicable</span>
-                </label>
-              </div>
-
-              <div className="flex gap-3 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditModal({ isOpen: false, employee: null, form: initialForm, showPassword: false })}
-                  className="btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary flex-1 shadow-glow-teal"
-                >
-                  Save Profile Changes
-                </button>
-              </div>
             </form>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setEditModal({ isOpen: false, employee: null, form: initialForm, showPassword: false })}
+                className="btn-secondary px-5 py-2.5 text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="editEmployeeForm"
+                className="btn-primary px-6 py-2.5 text-xs font-bold shadow-glow-teal"
+              >
+                Save Profile Changes
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Edit Salary Modal */}
       {salaryModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-lg relative p-6 space-y-4 border border-slate-100 animate-slide-up">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2">
-                <div className="p-2.5 bg-teal-50 text-teal-700 rounded-xl">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-lg overflow-hidden border border-slate-100 animate-slide-up">
+            <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center">
                   <IndianRupee className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-slate-900">Configure Salary</h3>
-                  <p className="text-[11px] text-slate-400">Settings for {salaryModal.employee?.name}</p>
+                  <p className="text-xs text-slate-400">Settings for {salaryModal.employee?.name}</p>
                 </div>
               </div>
-              <button onClick={() => setSalaryModal({ isOpen: false, employee: null, data: initialSalaryData })} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl">
+              <button 
+                onClick={() => setSalaryModal({ isOpen: false, employee: null, data: initialSalaryData })} 
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleUpdateSalary} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+
+            <form onSubmit={handleUpdateSalary} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Gross Salary</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Gross Salary (Monthly)</label>
                   <input name="grossSalary" required type="number" min="0" value={salaryModal.data.grossSalary} onChange={handleSalaryChange} className="form-input font-mono" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Basic Salary</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Basic Salary (Monthly)</label>
                   <input name="basicSalary" required type="number" min="0" value={salaryModal.data.basicSalary} onChange={handleSalaryChange} className="form-input font-mono" />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Other Deductions</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Other Deductions (Monthly)</label>
                   <input name="otherDeductions" type="number" min="0" value={salaryModal.data.otherDeductions} onChange={handleSalaryChange} className="form-input font-mono" />
                 </div>
               </div>
@@ -834,11 +958,11 @@ const AdminEmployees = () => {
                 </label>
               </div>
 
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setSalaryModal({ isOpen: false, employee: null, data: initialSalaryData })} className="btn-secondary flex-1">
+              <div className="flex gap-3 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setSalaryModal({ isOpen: false, employee: null, data: initialSalaryData })} className="btn-secondary flex-1 py-2.5 text-xs font-semibold">
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary flex-1 shadow-glow-teal">
+                <button type="submit" className="btn-primary flex-1 py-2.5 text-xs font-bold shadow-glow-teal">
                   Save Salary
                 </button>
               </div>
@@ -849,25 +973,25 @@ const AdminEmployees = () => {
 
       {/* Edit Manager Modal */}
       {managerModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md relative p-6 space-y-4 border border-slate-100 animate-slide-up">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2">
-                <div className="p-2.5 bg-teal-50 text-teal-700 rounded-xl">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md overflow-hidden border border-slate-100 animate-slide-up">
+            <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center">
                   <UserCheck className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-slate-900">Assign Reporting Line</h3>
-                  <p className="text-[11px] text-slate-400">Supervisor for {managerModal.employee?.name}</p>
+                  <p className="text-xs text-slate-400">Supervisor for {managerModal.employee?.name}</p>
                 </div>
               </div>
-              <button onClick={() => setManagerModal({ isOpen: false, employee: null, reportingManagerId: '' })} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl">
+              <button onClick={() => setManagerModal({ isOpen: false, employee: null, reportingManagerId: '' })} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleUpdateManager} className="space-y-4">
+            <form onSubmit={handleUpdateManager} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Direct Supervisor</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Direct Supervisor</label>
                 <select
                   value={managerModal.reportingManagerId}
                   onChange={(e) => setManagerModal({ ...managerModal, reportingManagerId: e.target.value })}
@@ -883,11 +1007,11 @@ const AdminEmployees = () => {
                     ))}
                 </select>
               </div>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setManagerModal({ isOpen: false, employee: null, reportingManagerId: '' })} className="btn-secondary flex-1">
+              <div className="flex gap-3 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setManagerModal({ isOpen: false, employee: null, reportingManagerId: '' })} className="btn-secondary flex-1 py-2.5 text-xs font-semibold">
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary flex-1 shadow-glow-teal">
+                <button type="submit" className="btn-primary flex-1 py-2.5 text-xs font-bold shadow-glow-teal">
                   Confirm Supervisor
                 </button>
               </div>
