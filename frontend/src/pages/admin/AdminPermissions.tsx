@@ -68,6 +68,29 @@ const AdminPermissions = () => {
     }
   };
 
+  const renderTypeBadge = (type?: string) => {
+    switch (type) {
+      case 'WFH':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">
+            🏠 WFH
+          </span>
+        );
+      case 'LEAVE':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-200">
+            🌴 Leave
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-teal-50 text-teal-700 border border-teal-200">
+            ⏱️ Permission
+          </span>
+        );
+    }
+  };
+
   const renderStatusBadge = (status: string) => {
     switch (status) {
       case 'APPROVED':
@@ -116,8 +139,8 @@ const AdminPermissions = () => {
             <Clock4 className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Permission Authorization Hub</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Review, approve, or reject employee absence permissions</p>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Permission & WFH Authorization</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Review, approve, or reject employee absence & remote work requests</p>
           </div>
         </div>
 
@@ -158,7 +181,7 @@ const AdminPermissions = () => {
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                 filterStatus === tab.id
                   ? 'bg-teal-600 text-white shadow-sm'
-                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               {tab.label}
@@ -173,24 +196,36 @@ const AdminPermissions = () => {
           <table className="min-w-full divide-y divide-slate-100">
             <thead className="bg-slate-50/75">
               <tr>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Type</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Timing</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Duration</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Supervisor</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Manager</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Reason</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={8} className="px-6 py-12 text-center text-slate-400 text-xs">Loading permission queue...</td></tr>
+                <tr>
+                  <td colSpan={9} className="px-6 py-12 text-center text-slate-400 text-xs">
+                    Loading permission requests...
+                  </td>
+                </tr>
               ) : filteredRequests.length === 0 ? (
-                <tr><td colSpan={8} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">No permission requests found.</td></tr>
+                <tr>
+                  <td colSpan={9} className="px-6 py-12 text-center text-slate-400 text-xs">
+                    No requests found matching the filter.
+                  </td>
+                </tr>
               ) : (
                 filteredRequests.map((req) => (
                   <tr key={req._id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {renderTypeBadge(req.requestType)}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-800 font-bold flex items-center justify-center text-xs border border-teal-100">
@@ -274,6 +309,9 @@ const AdminPermissions = () => {
             <div key={req._id} className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-card space-y-3">
               <div className="flex justify-between items-start pb-2 border-b border-slate-100">
                 <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    {renderTypeBadge(req.requestType)}
+                  </div>
                   <p className="font-bold text-slate-900 text-xs">{req.employeeName}</p>
                   <p className="text-[10px] text-slate-400 font-mono">{req.employeeId}</p>
                 </div>
@@ -329,7 +367,7 @@ const AdminPermissions = () => {
           <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md relative p-6 space-y-4 border border-slate-100 animate-slide-up">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-900">
-                {reviewModal.status === 'APPROVED' ? 'Approve' : 'Reject'} Permission
+                {reviewModal.status === 'APPROVED' ? 'Approve' : 'Reject'} {reviewModal.request?.requestType === 'WFH' ? 'WFH' : 'Permission'} Request
               </h3>
               <button
                 onClick={() => setReviewModal({ isOpen: false, request: null, status: 'APPROVED', comment: '' })}
@@ -339,12 +377,22 @@ const AdminPermissions = () => {
               </button>
             </div>
 
-            <div className="p-3.5 bg-slate-50 rounded-2xl text-xs space-y-1 border border-slate-100">
+            <div className="p-3.5 bg-slate-50 rounded-2xl text-xs space-y-1.5 border border-slate-100">
+              <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Type:</span>
+                {renderTypeBadge(reviewModal.request?.requestType)}
+              </div>
               <p><strong className="text-slate-700">Employee:</strong> {reviewModal.request?.employeeName} ({reviewModal.request?.employeeId})</p>
               <p><strong className="text-slate-700">Date:</strong> {reviewModal.request?.date}</p>
-              <p><strong className="text-slate-700">Duration:</strong> {reviewModal.request?.totalHoursFormatted}</p>
+              <p><strong className="text-slate-700">Timing:</strong> {reviewModal.request?.startTime} – {reviewModal.request?.endTime} ({reviewModal.request?.totalHoursFormatted})</p>
               <p><strong className="text-slate-700">Reason:</strong> {reviewModal.request?.reason || 'None'}</p>
             </div>
+
+            {reviewModal.request?.requestType === 'WFH' && reviewModal.status === 'APPROVED' && (
+              <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-[11px] text-indigo-800">
+                ⭐ <strong>WFH Approval Effect:</strong> The employee's work login time will automatically start from <strong>{reviewModal.request?.startTime}</strong> on {reviewModal.request?.date}.
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">

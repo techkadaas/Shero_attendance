@@ -38,15 +38,15 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
   };
 
   const handleCheckIn = async () => {
-    setLoadingAction('Check In');
+    setLoadingAction('Sign In');
     setError(null);
     try {
       const coords = await getCoordinates();
       await checkIn(coords || undefined);
-      toast.success('Checked in successfully! Have a great day.');
+      toast.success('Signed in successfully! Have a great day.');
       onRefresh();
     } catch (err: any) {
-      const msg = err.response?.data?.error || 'Failed to check in';
+      const msg = err.response?.data?.error || 'Failed to sign in';
       setError(msg);
       toast.error(msg);
     } finally {
@@ -94,21 +94,21 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
         return (
           <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/80 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-amber-500 mr-2"></span>
-            <span>ON BREAK / LEAVE</span>
+            <span>ON BREAK</span>
           </div>
         );
       case 'CHECKED_OUT':
         return (
           <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200/80 shadow-xs">
             <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
-            <span>CHECKED OUT</span>
+            <span>SIGNED OUT</span>
           </div>
         );
       default:
         return (
           <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200/80">
             <span className="w-2 h-2 rounded-full bg-slate-400 mr-2"></span>
-            <span>NOT CHECKED IN</span>
+            <span>NOT SIGNED IN</span>
           </div>
         );
     }
@@ -149,7 +149,7 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
         </div>
       )}
 
-      {/* State Machine: Not Checked In */}
+      {/* State Machine: Not Signed In */}
       {status === 'NOT_CHECKED_IN' ? (
         <div className="text-center py-10 px-4 bg-gradient-to-b from-slate-50 to-white rounded-2xl border border-dashed border-slate-200 my-6">
           <div className="w-16 h-16 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto mb-4 ring-8 ring-teal-50/50">
@@ -158,8 +158,8 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
           <h3 className="text-base font-bold text-slate-900 mb-1">Ready to start your day?</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mb-6">
             {workMode === 'WFO' 
-              ? 'Click below to capture your GPS location at the office and begin tracking your active work hours.'
-              : 'Click below to record your official check-in timestamp and begin tracking your active work hours.'}
+              ? 'Click below to verify your GPS location at the office and begin tracking your active work hours.'
+              : 'Click below to record your official sign-in timestamp and begin tracking your active work hours.'}
           </p>
           <button
             onClick={handleCheckIn}
@@ -167,7 +167,7 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
             className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-sm rounded-xl shadow-glow-teal active:scale-[0.98] transition-all inline-flex items-center justify-center space-x-2 disabled:opacity-60"
           >
             <LogIn className="w-4 h-4" />
-            <span>{loadingAction === 'Check In' ? 'Verifying Location & Checking In...' : 'CHECK IN NOW'}</span>
+            <span>{loadingAction === 'Sign In' ? 'Verifying Location & Signing In...' : 'SIGN IN NOW'}</span>
           </button>
         </div>
       ) : (
@@ -177,9 +177,9 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
           {/* Key Metrics Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             
-            {/* Check In Tile */}
+            {/* Sign In Tile */}
             <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Check In Time</p>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Sign In Time</p>
               <p className="text-lg font-extrabold text-slate-900 font-mono">
                 {formatTime(attendance.checkIn)}
               </p>
@@ -212,7 +212,7 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
               </p>
             </div>
 
-            {/* Break / Leave Time Tile */}
+            {/* Break / Pause Time Tile */}
             <div className={`p-4 rounded-2xl border transition-all ${
               status === 'STOPPED' 
                 ? 'bg-amber-50/70 border-amber-200/80 text-amber-900' 
@@ -220,7 +220,7 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
             }`}>
               <div className="flex items-center justify-between mb-1">
                 <p className={`text-[11px] font-bold uppercase tracking-wider ${status === 'STOPPED' ? 'text-amber-700' : 'text-slate-400'}`}>
-                  Leave / Break
+                  Break Time
                 </p>
                 {status === 'STOPPED' && (
                   <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
@@ -231,34 +231,34 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
               </p>
             </div>
 
-            {/* Check Out Tile */}
+            {/* Sign Out Tile */}
             <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Check Out Time</p>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Sign Out Time</p>
               <p className="text-lg font-extrabold text-slate-900 font-mono">
                 {status === 'CHECKED_OUT' && attendance.checkOut ? formatTime(attendance.checkOut) : '--:--'}
               </p>
             </div>
           </div>
 
-          {/* Action Hub Buttons (Hick's & Fitts's Law Ergonomics) */}
+          {/* Action Hub Buttons (Primary Actions) */}
           <div className="pt-2">
             {status === 'WORKING' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
-                  onClick={() => handleAction(stopSession, 'Stop', 'Paused work. Break/Leave started.')}
+                  onClick={() => handleAction(stopSession, 'Break', 'Paused work. Break started.')}
                   disabled={loadingAction !== null}
-                  className="py-3.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl shadow-sm active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-60"
+                  className="py-3.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl shadow-sm active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
                 >
                   <Coffee className="w-4 h-4" />
-                  <span>{loadingAction === 'Stop' ? 'Taking Leave...' : 'TAKE LEAVE / BREAK'}</span>
+                  <span>{loadingAction === 'Break' ? 'Taking Break...' : 'TAKE BREAK'}</span>
                 </button>
                 <button
-                  onClick={() => handleAction(checkOut, 'Check Out', 'Checked out successfully. Good work today!')}
+                  onClick={() => handleAction(checkOut, 'Sign Out', 'Signed out successfully. Good work today!')}
                   disabled={loadingAction !== null}
-                  className="py-3.5 px-4 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-xl shadow-glow-teal active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-60"
+                  className="py-3.5 px-4 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-xl shadow-glow-teal active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span>{loadingAction === 'Check Out' ? 'Checking out...' : 'CHECK OUT FOR TODAY'}</span>
+                  <span>{loadingAction === 'Sign Out' ? 'Signing out...' : 'SIGN OUT FOR TODAY'}</span>
                 </button>
               </div>
             )}
@@ -268,13 +268,13 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
                 <button
                   onClick={() => handleAction(resumeSession, 'Resume', 'Resumed working session!')}
                   disabled={loadingAction !== null}
-                  className="w-full py-4 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm rounded-xl shadow-glow-emerald active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-60"
+                  className="w-full py-4 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm rounded-xl shadow-glow-emerald active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-white" />
-                  <span>{loadingAction === 'Resume' ? 'Resuming Session...' : 'RESUME WORKING'}</span>
+                  <span>{loadingAction === 'Resume' ? 'Resuming Session...' : 'RESUME WORK'}</span>
                 </button>
                 <p className="text-center text-[11px] text-slate-400">
-                  Click to resume your work timer and stop leave tracking.
+                  Click to resume your work timer and conclude your break.
                 </p>
               </div>
             )}

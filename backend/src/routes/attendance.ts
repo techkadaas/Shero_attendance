@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { getTodayRange, calculateDurationSeconds } from '../utils/time';
-import { attendances, attendanceEvents, workSessions, users, settings } from '../mongo';
+import { getTodayRange, calculateDurationSeconds, getISTTodayString, combineDateAndTimeToISTDate } from '../utils/time';
+import { attendances, attendanceEvents, workSessions, users, settings, permissions } from '../mongo';
 import { calculateDistanceMeters } from '../utils/geo';
 
 // Ensure connection is established (mongo.ts connects on import)
@@ -31,13 +31,26 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
     const now = new Date();
     const existing = await getTodayAttendance(employeeId);
     if (existing) {
-      return res.status(400).json({ error: 'Already checked in today' });
+      return res.status(400).json({ error: 'Already signed in today' });
     }
 
-    // Geofence check for WFO employees
+    // Check if user has an approved WFH request for today
+    const todayStr = getISTTodayString(now);
+    const approvedWfh = await permissions().findOne({
+      employeeId,
+      requestType: 'WFH',
+      date: todayStr,
+      status: 'APPROVED',
+    });
+
     const user = await users().findOne({ employeeId });
-    const workMode = user?.workMode || 'WFO';
+    const workMode = approvedWfh ? 'WFH' : (user?.workMode || 'WFO');
     let locationData: any = null;
+
+    let checkInTimestamp = now;
+    if (approvedWfh && approvedWfh.startTime) {
+      checkInTimestamp = combineDateAndTimeToISTDate(todayStr, approvedWfh.startTime);
+    }
 
     if (workMode === 'WFO') {
       const currentSettings = await settings().findOne({});
@@ -45,7 +58,7 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
       if (officeLoc && officeLoc.latitude && officeLoc.longitude && officeLoc.radiusMeters) {
         if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
           return res.status(400).json({
-            error: 'Office Location Required: WFO employees must check in within office premises. Please enable GPS location.',
+            error: 'Office Location Required: WFO employees must sign in within office premises. Please enable GPS location.',
           });
         }
         const userLat = Number(latitude);
@@ -56,7 +69,7 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
         const distance = calculateDistanceMeters(userLat, userLon, officeLoc.latitude, officeLoc.longitude);
         if (distance > officeLoc.radiusMeters) {
           return res.status(400).json({
-            error: `Outside Office Perimeter: You are ${distance}m away (Allowed radius: ${officeLoc.radiusMeters}m). WFO employees must be in the office to punch in.`,
+            error: `Outside Office Perimeter: You are ${distance}m away (Allowed radius: ${officeLoc.radiusMeters}m). WFO employees must be in the office to sign in.`,
             distance,
             allowedRadius: officeLoc.radiusMeters,
           });
@@ -71,10 +84,12 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
     const attendanceResult = await attendances().insertOne({
       employeeId,
       date: now,
-      checkIn: now,
+      checkIn: checkInTimestamp,
       status: 'WORKING',
       workMode,
       location: locationData,
+      isGeofenceVerified: workMode === 'WFO' ? true : false,
+      wfhApprovedFromRequest: !!approvedWfh,
       totalWorkingSeconds: 0,
       totalStoppedSeconds: 0,
     });

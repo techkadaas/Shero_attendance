@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
-import { getTodayRange } from '../utils/time';
+import { getTodayRange, getISTMinutes } from '../utils/time';
 import { attendances, users, attendanceEvents, workSessions, settings, permissions } from '../mongo';
 import bcrypt from 'bcryptjs';
 
@@ -24,23 +24,11 @@ router.get('/settings', async (req: AuthRequest, res: Response) => {
         officeLocation: {
           latitude: 13.0827,
           longitude: 80.2707,
-          radiusMeters: 500,
-          address: 'Shero Home Food Head Office',
+          radiusMeters: 100,
+          address: 'Chennai, Tamil Nadu, India',
         },
       };
       await settings().insertOne(currentSettings);
-    } else {
-      if (!currentSettings.officeStartTime) currentSettings.officeStartTime = '09:00';
-      if (!currentSettings.officeEndTime) currentSettings.officeEndTime = '18:00';
-      if (currentSettings.graceMinutes === undefined) currentSettings.graceMinutes = 15;
-      if (!currentSettings.officeLocation) {
-        currentSettings.officeLocation = {
-          latitude: 13.0827,
-          longitude: 80.2707,
-          radiusMeters: 500,
-          address: 'Shero Home Food Head Office',
-        };
-      }
     }
     res.json(currentSettings);
   } catch (error) {
@@ -51,48 +39,50 @@ router.get('/settings', async (req: AuthRequest, res: Response) => {
 
 router.put('/settings', async (req: AuthRequest, res: Response) => {
   try {
-    const {
-      pfEmployeeRate,
-      pfEmployerRate,
-      esiEmployeeRate,
+    const { 
+      pfEmployeeRate, 
+      pfEmployerRate, 
+      esiEmployeeRate, 
       esiEmployerRate,
       officeStartTime,
       officeEndTime,
       graceMinutes,
-      officeLocation,
+      officeLocation
     } = req.body;
 
-    const updateFields: any = {};
-    if (pfEmployeeRate !== undefined) updateFields.pfEmployeeRate = Number(pfEmployeeRate);
-    if (pfEmployerRate !== undefined) updateFields.pfEmployerRate = Number(pfEmployerRate);
-    if (esiEmployeeRate !== undefined) updateFields.esiEmployeeRate = Number(esiEmployeeRate);
-    if (esiEmployerRate !== undefined) updateFields.esiEmployerRate = Number(esiEmployerRate);
-    if (officeStartTime !== undefined) updateFields.officeStartTime = String(officeStartTime);
-    if (officeEndTime !== undefined) updateFields.officeEndTime = String(officeEndTime);
-    if (graceMinutes !== undefined) updateFields.graceMinutes = Number(graceMinutes);
+    const updateDoc: any = {
+      pfEmployeeRate: Number(pfEmployeeRate),
+      pfEmployerRate: Number(pfEmployerRate),
+      esiEmployeeRate: Number(esiEmployeeRate),
+      esiEmployerRate: Number(esiEmployerRate),
+    };
+
+    if (officeStartTime !== undefined) updateDoc.officeStartTime = officeStartTime;
+    if (officeEndTime !== undefined) updateDoc.officeEndTime = officeEndTime;
+    if (graceMinutes !== undefined) updateDoc.graceMinutes = Number(graceMinutes);
     if (officeLocation !== undefined) {
-      updateFields.officeLocation = {
-        latitude: Number(officeLocation.latitude) || 13.0827,
-        longitude: Number(officeLocation.longitude) || 80.2707,
-        radiusMeters: Number(officeLocation.radiusMeters) || 500,
-        address: String(officeLocation.address || 'Office Premises').trim(),
+      updateDoc.officeLocation = {
+        latitude: Number(officeLocation.latitude) || 0,
+        longitude: Number(officeLocation.longitude) || 0,
+        radiusMeters: Number(officeLocation.radiusMeters) || 100,
+        address: officeLocation.address || '',
       };
     }
 
-    await settings().updateOne(
+    const result = await settings().findOneAndUpdate(
       {},
-      { $set: updateFields },
-      { upsert: true }
+      { $set: updateDoc },
+      { returnDocument: 'after', upsert: true }
     );
-    res.json({ message: 'Settings updated successfully' });
+    res.json(result);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to update settings' });
   }
 });
 
-// --- Dashboard summary ---
-router.get('/dashboard', async (req: AuthRequest, res: Response) => {
+// --- Dashboard Summary ---
+router.get('/dashboard-summary', async (req: AuthRequest, res: Response) => {
   try {
     const { date } = req.query as any;
     let start: Date, end: Date;
@@ -128,14 +118,14 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
     const officeEndTime = currentSettings?.officeEndTime || '18:00';
     const graceMinutes = currentSettings?.graceMinutes ?? 15;
 
-    // Calculate Late employees
+    // Calculate Late employees accurately in IST
     const [startH, startM] = officeStartTime.split(':').map(Number);
     const thresholdMinutes = (isNaN(startH) ? 9 : startH) * 60 + (isNaN(startM) ? 0 : startM) + graceMinutes;
 
     const lateCount = todayRecords.filter((r) => {
       if (!r.checkIn) return false;
       const checkInDate = new Date(r.checkIn);
-      const checkInMinutes = checkInDate.getHours() * 60 + checkInDate.getMinutes();
+      const checkInMinutes = getISTMinutes(checkInDate);
       return checkInMinutes > thresholdMinutes;
     }).length;
 
@@ -176,6 +166,13 @@ router.get('/attendance', async (req: AuthRequest, res: Response) => {
       start = range.start;
       end = range.end;
     }
+
+    let currentSettings = await settings().findOne({});
+    const officeStartTime = currentSettings?.officeStartTime || '09:00';
+    const graceMinutes = currentSettings?.graceMinutes ?? 15;
+    const [startH, startM] = officeStartTime.split(':').map(Number);
+    const thresholdMinutes = (isNaN(startH) ? 9 : startH) * 60 + (isNaN(startM) ? 0 : startM) + graceMinutes;
+
     const records = await attendances()
       .find({ date: { $gte: start, $lte: end } })
       .sort({ checkIn: 1 })
@@ -183,9 +180,14 @@ router.get('/attendance', async (req: AuthRequest, res: Response) => {
 
     const recordsWithUser = await Promise.all(
       records.map(async rec => {
-        const user = await users().findOne({ employeeId: rec.employeeId }, { projection: { name: 1, employeeId: 1 } });
+        const user = await users().findOne({ employeeId: rec.employeeId }, { projection: { name: 1, employeeId: 1, workMode: 1 } });
         const events = await attendanceEvents().find({ attendanceId: rec._id }).sort({ timestamp: 1 }).toArray();
-        return { ...rec, user, events };
+        let isLate = false;
+        if (rec.checkIn) {
+          const checkInMinutes = getISTMinutes(new Date(rec.checkIn));
+          isLate = checkInMinutes > thresholdMinutes;
+        }
+        return { ...rec, user, events, isLate };
       })
     );
     res.json(recordsWithUser);

@@ -179,14 +179,13 @@ const AdminDashboard = () => {
         </div>
       ) : (
         <>
-          {/* Metric Telemetry Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
+          {/* Metric Telemetry Cards (5-col grid with Working Now removed) */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
             <SummaryCard title="Present" value={summary?.present || 0} icon={UserCheck} colorClass="text-emerald-600" bgClass="bg-emerald-50" />
             <SummaryCard title="Late Today" value={summary?.lateToday || 0} icon={Clock} colorClass="text-amber-600" bgClass="bg-amber-50" />
-            <SummaryCard title="Working Now" value={summary?.workingNow || 0} icon={Users} colorClass="text-teal-600" bgClass="bg-teal-50" />
             <SummaryCard title="Permissions" value={summary?.permissionCount || 0} icon={Clock4} colorClass="text-indigo-600" bgClass="bg-indigo-50" />
             <SummaryCard title="On Leave" value={summary?.absent || 0} icon={UserX} colorClass="text-rose-600" bgClass="bg-rose-50" />
-            <SummaryCard title="Checked Out" value={summary?.checkedOut || 0} icon={LogOut} colorClass="text-slate-600" bgClass="bg-slate-100" />
+            <SummaryCard title="Signed Out" value={summary?.checkedOut || 0} icon={LogOut} colorClass="text-slate-600" bgClass="bg-slate-100" />
           </div>
 
           {/* Desktop Table */}
@@ -196,8 +195,8 @@ const AdminDashboard = () => {
                 <thead className="bg-slate-50/75">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Check In</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Check Out</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Sign In</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Sign Out</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Working Duration</th>
                     <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
                   </tr>
@@ -224,7 +223,14 @@ const AdminDashboard = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-medium text-slate-700">
-                          {formatTime(record.checkIn) || '--:--'}
+                          <div className="flex items-center gap-1.5">
+                            <span>{formatTime(record.checkIn) || '--:--'}</span>
+                            {record.isLate && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-200">
+                                LATE
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-medium text-slate-700">
                           {formatTime(record.checkOut) || '--:--'}
@@ -266,11 +272,18 @@ const AdminDashboard = () => {
 
                   <div className="grid grid-cols-3 gap-2 text-center text-xs">
                     <div className="bg-slate-50 rounded-xl p-2">
-                      <p className="text-[10px] text-slate-400 mb-0.5">Check In</p>
-                      <p className="font-mono font-bold text-slate-800">{formatTime(record.checkIn) || '—'}</p>
+                      <p className="text-[10px] text-slate-400 mb-0.5">Sign In</p>
+                      <div className="flex flex-col items-center">
+                        <p className="font-mono font-bold text-slate-800">{formatTime(record.checkIn) || '—'}</p>
+                        {record.isLate && (
+                          <span className="mt-0.5 px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-100 text-amber-800 border border-amber-200">
+                            LATE
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-2">
-                      <p className="text-[10px] text-slate-400 mb-0.5">Check Out</p>
+                      <p className="text-[10px] text-slate-400 mb-0.5">Sign Out</p>
                       <p className="font-mono font-bold text-slate-800">{formatTime(record.checkOut) || '—'}</p>
                     </div>
                     <div className="bg-teal-50 rounded-xl p-2 border border-teal-100">

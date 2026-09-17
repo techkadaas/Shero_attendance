@@ -34,11 +34,18 @@ const EmployeePermissions = () => {
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const todayStr = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    date: string;
+    startTime: string;
+    endTime: string;
+    reason: string;
+    requestType: 'PERMISSION' | 'WFH' | 'LEAVE';
+  }>({
     date: todayStr,
-    startTime: '14:00',
-    endTime: '16:00',
+    startTime: '09:00',
+    endTime: '18:00',
     reason: '',
+    requestType: user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -88,13 +95,18 @@ const EmployeePermissions = () => {
     try {
       setSubmitting(true);
       await submitPermission(form);
-      toast.success('Permission request submitted successfully!');
+      toast.success(
+        form.requestType === 'WFH'
+          ? 'WFH request submitted to your reporting manager!'
+          : 'Permission request submitted successfully!'
+      );
       setShowModal(false);
       setForm({
         date: todayStr,
-        startTime: '14:00',
-        endTime: '16:00',
+        startTime: '09:00',
+        endTime: '18:00',
         reason: '',
+        requestType: user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION',
       });
       fetchData();
     } catch (error: any) {
@@ -111,11 +123,34 @@ const EmployeePermissions = () => {
         status: reviewModal.status,
         managerComment: reviewModal.comment,
       });
-      toast.success(`Permission request ${reviewModal.status.toLowerCase()}!`);
+      toast.success(`Request ${reviewModal.status.toLowerCase()}!`);
       setReviewModal({ isOpen: false, request: null, status: 'APPROVED', comment: '' });
       fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to update status');
+    }
+  };
+
+  const renderTypeBadge = (type?: string) => {
+    switch (type) {
+      case 'WFH':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">
+            🏠 WFH
+          </span>
+        );
+      case 'LEAVE':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-200">
+            🌴 Leave
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-teal-50 text-teal-700 border border-teal-200">
+            ⏱️ Permission
+          </span>
+        );
     }
   };
 
@@ -234,6 +269,7 @@ const EmployeePermissions = () => {
                   <table className="min-w-full divide-y divide-slate-100">
                     <thead className="bg-slate-50/75">
                       <tr>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Type</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Timing</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Duration</th>
@@ -245,6 +281,9 @@ const EmployeePermissions = () => {
                     <tbody className="divide-y divide-slate-100">
                       {myRequests.map((req) => (
                         <tr key={req._id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {renderTypeBadge(req.requestType)}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-slate-900">
                             {format(new Date(req.date), 'EEE, dd MMM yyyy')}
                           </td>
@@ -292,6 +331,9 @@ const EmployeePermissions = () => {
                   <div key={req._id} className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-card space-y-2.5">
                     <div className="flex justify-between items-start">
                       <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          {renderTypeBadge(req.requestType)}
+                        </div>
                         <p className="font-bold text-slate-900 text-xs">{format(new Date(req.date), 'EEE, dd MMM yyyy')}</p>
                         <p className="text-xs font-mono text-slate-500 mt-0.5">
                           {formatTime12(req.startTime)} – {formatTime12(req.endTime)}
@@ -454,18 +496,19 @@ const EmployeePermissions = () => {
         </>
       )}
 
-      {/* Request Permission Modal */}
+      {/* Request Permission / WFH Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fade-in">
-          <div className="bg-white w-full sm:rounded-3xl shadow-2xl sm:max-w-lg relative max-h-screen overflow-y-auto border border-slate-100 animate-slide-up">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100">
+          <div className="bg-white w-full sm:rounded-3xl shadow-2xl sm:max-w-lg relative max-h-[90vh] flex flex-col overflow-hidden border border-slate-100 animate-slide-up">
+            {/* Header */}
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 shrink-0">
               <div className="flex items-center space-x-2">
                 <div className="p-2.5 bg-teal-50 rounded-xl text-teal-700">
                   <Clock className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-extrabold text-slate-900">New Permission Request</h2>
-                  <p className="text-[11px] text-slate-400">Specify date and start/end time</p>
+                  <h2 className="text-base font-extrabold text-slate-900">New Request</h2>
+                  <p className="text-[11px] text-slate-400">Request WFH remote day, short permission, or leave</p>
                 </div>
               </div>
               <button
@@ -476,7 +519,52 @@ const EmployeePermissions = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              {/* Request Type Selector */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Request Category
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'WFH', label: 'Work From Home', icon: '🏠', desc: 'Remote day request' },
+                    { id: 'PERMISSION', label: 'Permission', icon: '⏱️', desc: 'Short 1-2h errand' },
+                    { id: 'LEAVE', label: 'Full/Half Leave', icon: '🌴', desc: 'Planned time off' },
+                  ].map((cat) => (
+                    <button
+                      type="button"
+                      key={cat.id}
+                      onClick={() => setForm({ ...form, requestType: cat.id as any })}
+                      className={`p-2.5 rounded-2xl border text-left transition-all ${
+                        form.requestType === cat.id
+                          ? 'bg-teal-50/80 border-teal-500 ring-2 ring-teal-500/20 shadow-xs'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="text-base mb-1">{cat.icon}</div>
+                      <p className={`text-xs font-bold ${form.requestType === cat.id ? 'text-teal-900' : 'text-slate-800'}`}>
+                        {cat.label}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{cat.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* WFH Notice Banner */}
+              {form.requestType === 'WFH' && (
+                <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-2xl text-xs text-indigo-900">
+                  <p className="font-bold flex items-center gap-1.5">
+                    <span>💡</span> WFH Policy & Login Rule
+                  </p>
+                  <p className="text-[11px] text-indigo-700 mt-1 leading-relaxed">
+                    Once your reporting manager approves this WFH request, your sign-in will start from your requested time and the office GPS perimeter will be waived for that day.
+                  </p>
+                </div>
+              )}
+
+              {/* Routing Approver Badge */}
               <div className="p-3 bg-teal-50/70 rounded-2xl border border-teal-100/80 text-xs">
                 <p className="text-teal-900 font-bold flex items-center">
                   <UserCheck className="w-4 h-4 mr-1.5 text-teal-600" />
@@ -506,7 +594,7 @@ const EmployeePermissions = () => {
                     required
                     value={form.startTime}
                     onChange={(e) => setForm({ ...form, startTime: e.target.value })}
-                    className="form-input"
+                    className="form-input font-mono"
                   />
                 </div>
                 <div>
@@ -516,7 +604,7 @@ const EmployeePermissions = () => {
                     required
                     value={form.endTime}
                     onChange={(e) => setForm({ ...form, endTime: e.target.value })}
-                    className="form-input"
+                    className="form-input font-mono"
                   />
                 </div>
               </div>
@@ -539,14 +627,20 @@ const EmployeePermissions = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Reason for Permission</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Reason for {form.requestType === 'WFH' ? 'WFH' : 'Request'}
+                </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   required
-                  placeholder="Explain why you are requesting permission (e.g., Doctor appointment, emergency errand)..."
+                  placeholder={
+                    form.requestType === 'WFH'
+                      ? 'Explain why you are requesting to work from home...'
+                      : 'Explain why you are requesting this absence...'
+                  }
                   value={form.reason}
                   onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                  className="form-input"
+                  className="form-input text-xs"
                 />
               </div>
 
@@ -557,7 +651,7 @@ const EmployeePermissions = () => {
                   className="w-full btn-primary py-3.5 shadow-glow-teal"
                 >
                   <Send className="w-4 h-4 mr-1.5" />
-                  {submitting ? 'Submitting Request...' : 'Send Permission Request'}
+                  {submitting ? 'Submitting Request...' : `Submit ${form.requestType === 'WFH' ? 'WFH' : 'Permission'} Request`}
                 </button>
               </div>
             </form>
@@ -571,7 +665,7 @@ const EmployeePermissions = () => {
           <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md relative p-6 space-y-4 border border-slate-100 animate-slide-up">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-900">
-                {reviewModal.status === 'APPROVED' ? 'Approve' : 'Reject'} Permission Request
+                {reviewModal.status === 'APPROVED' ? 'Approve' : 'Reject'} {reviewModal.request?.requestType === 'WFH' ? 'WFH' : 'Permission'} Request
               </h3>
               <button
                 onClick={() => setReviewModal({ isOpen: false, request: null, status: 'APPROVED', comment: '' })}
@@ -581,12 +675,22 @@ const EmployeePermissions = () => {
               </button>
             </div>
 
-            <div className="p-3.5 bg-slate-50 rounded-2xl text-xs space-y-1 border border-slate-100">
+            <div className="p-3.5 bg-slate-50 rounded-2xl text-xs space-y-1.5 border border-slate-100">
+              <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Type:</span>
+                {renderTypeBadge(reviewModal.request?.requestType)}
+              </div>
               <p><strong className="text-slate-700">Employee:</strong> {reviewModal.request?.employeeName} ({reviewModal.request?.employeeId})</p>
               <p><strong className="text-slate-700">Date:</strong> {reviewModal.request?.date}</p>
-              <p><strong className="text-slate-700">Duration:</strong> {reviewModal.request?.totalHoursFormatted}</p>
+              <p><strong className="text-slate-700">Requested Timing:</strong> {reviewModal.request?.startTime} – {reviewModal.request?.endTime} ({reviewModal.request?.totalHoursFormatted})</p>
               <p><strong className="text-slate-700">Reason:</strong> {reviewModal.request?.reason || 'None'}</p>
             </div>
+
+            {reviewModal.request?.requestType === 'WFH' && reviewModal.status === 'APPROVED' && (
+              <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-[11px] text-indigo-800">
+                ⭐ <strong>WFH Approval Effect:</strong> The employee's work login time will automatically start from <strong>{reviewModal.request?.startTime}</strong> on {reviewModal.request?.date}.
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">

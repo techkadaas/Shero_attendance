@@ -1,7 +1,8 @@
 import { Router, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { permissions, users } from '../mongo';
+import { permissions, users, attendances, attendanceEvents, workSessions } from '../mongo';
+import { getTodayRange, getISTTodayString, combineDateAndTimeToISTDate } from '../utils/time';
 
 const router = Router();
 router.use(authenticateToken);
@@ -33,7 +34,7 @@ export const calculateDuration = (startTime: string, endTime: string) => {
   return { decimalHours, formatted, diffMins };
 };
 
-// --- 1. Request a new permission (Employee) ---
+// --- 1. Request a new permission or WFH (Employee) ---
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
@@ -41,7 +42,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { date, startTime, endTime, reason } = req.body;
+    const { date, startTime, endTime, reason, requestType } = req.body;
 
     if (!date || !startTime || !endTime) {
       return res.status(400).json({ error: 'Date, start time, and end time are required' });
@@ -78,6 +79,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const type = requestType === 'WFH' ? 'WFH' : (requestType === 'LEAVE' ? 'LEAVE' : 'PERMISSION');
+
     const newPermission = {
       employeeUserId: employee._id,
       employeeId: employee.employeeId,
@@ -85,11 +88,12 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       employeeEmail: employee.email,
       managerUserId,
       managerInfo,
+      requestType: type, // 'PERMISSION' | 'WFH' | 'LEAVE'
       date, // YYYY-MM-DD
-      startTime, // e.g. "14:00"
-      endTime, // e.g. "16:30"
-      totalHours: decimalHours, // e.g. 2.5
-      totalHoursFormatted: formatted, // e.g. "2 hrs 30 mins"
+      startTime, // e.g. "09:00"
+      endTime, // e.g. "18:00"
+      totalHours: decimalHours,
+      totalHoursFormatted: formatted,
       reason: reason || '',
       status: 'PENDING', // 'PENDING' | 'APPROVED' | 'REJECTED'
       createdAt: new Date(),
@@ -99,7 +103,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     const result = await permissions().insertOne(newPermission);
 
     res.status(201).json({
-      message: 'Permission request submitted successfully',
+      message: `${type === 'WFH' ? 'Work from Home' : 'Permission'} request submitted successfully`,
       permissionId: result.insertedId,
       permission: { ...newPermission, _id: result.insertedId },
     });
@@ -145,10 +149,8 @@ router.get('/team', async (req: AuthRequest, res: Response) => {
 
     let filter: any = {};
     if (role === 'ADMIN') {
-      // Admins can see all team permission requests
       filter = {};
     } else {
-      // Managers only see requests assigned to them
       filter = {
         managerUserId: new ObjectId(userId),
       };
@@ -166,7 +168,7 @@ router.get('/team', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// --- 4. Approve / Reject permission request (Reporting Manager or Admin) ---
+// --- 4. Approve / Reject permission or WFH request (Reporting Manager or Admin) ---
 router.put('/:id/status', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
@@ -189,7 +191,7 @@ router.put('/:id/status', async (req: AuthRequest, res: Response) => {
     const isAdmin = role === 'ADMIN';
 
     if (!isManager && !isAdmin) {
-      return res.status(403).json({ error: 'You are not authorized to review this permission request' });
+      return res.status(403).json({ error: 'You are not authorized to review this request' });
     }
 
     const reviewer = await users().findOne({ _id: new ObjectId(userId) });
@@ -211,11 +213,80 @@ router.put('/:id/status', async (req: AuthRequest, res: Response) => {
       }
     );
 
-    res.json({ message: `Permission request ${status.toLowerCase()} successfully` });
+    // If WFH request is APPROVED and it applies to today, initialize attendance starting from requested time
+    if (status === 'APPROVED' && permission.requestType === 'WFH') {
+      try {
+        const todayStr = getISTTodayString();
+        if (permission.date === todayStr) {
+          const requestedStartTime = combineDateAndTimeToISTDate(permission.date, permission.startTime || '09:00');
+          const { start, end } = getTodayRange();
+          
+          let existingAttendance = await attendances().findOne({
+            employeeId: permission.employeeId,
+            date: { $gte: start, $lte: end },
+          });
+
+          if (!existingAttendance) {
+            // Auto-create attendance record with checkIn starting from requested start time
+            const insertRes = await attendances().insertOne({
+              employeeId: permission.employeeId,
+              date: new Date(),
+              checkIn: requestedStartTime,
+              status: 'WORKING',
+              workMode: 'WFH',
+              isGeofenceVerified: true,
+              totalWorkingSeconds: 0,
+              totalStoppedSeconds: 0,
+              wfhApprovedFromRequest: true,
+            });
+
+            await attendanceEvents().insertOne({
+              attendanceId: insertRes.insertedId,
+              employeeId: permission.employeeId,
+              eventType: 'CHECK_IN',
+              timestamp: requestedStartTime,
+            });
+
+            await workSessions().insertOne({
+              attendanceId: insertRes.insertedId,
+              employeeId: permission.employeeId,
+              startTime: requestedStartTime,
+            });
+
+            await users().updateOne(
+              { employeeId: permission.employeeId },
+              { $set: { status: 'WORKING' } }
+            );
+          } else {
+            // Update existing attendance to WFH and adjust checkIn if needed
+            await attendances().updateOne(
+              { _id: existingAttendance._id },
+              { 
+                $set: { 
+                  workMode: 'WFH',
+                  status: 'WORKING',
+                  checkIn: existingAttendance.checkIn || requestedStartTime,
+                  wfhApprovedFromRequest: true,
+                } 
+              }
+            );
+            await users().updateOne(
+              { employeeId: permission.employeeId },
+              { $set: { status: 'WORKING' } }
+            );
+          }
+        }
+      } catch (wfhErr) {
+        console.error('Error applying approved WFH attendance:', wfhErr);
+      }
+    }
+
+    res.json({ message: `${permission.requestType === 'WFH' ? 'WFH' : 'Permission'} request ${status.toLowerCase()} successfully` });
   } catch (error) {
-    console.error('Failed to update permission status:', error);
-    res.status(500).json({ error: 'Failed to update permission status' });
+    console.error('Failed to update request status:', error);
+    res.status(500).json({ error: 'Failed to update request status' });
   }
 });
 
 export default router;
+
