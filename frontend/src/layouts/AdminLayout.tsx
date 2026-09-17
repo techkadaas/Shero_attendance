@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, Users, CalendarDays, IndianRupee, Menu, X, Settings, Clock4, ShieldCheck } from 'lucide-react';
+import { AttendanceReminderAndPWA } from '../components/common/AttendanceReminderAndPWA';
 
 const AdminLayout = () => {
   const { user, logout } = useAuth();
@@ -26,6 +27,7 @@ const AdminLayout = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans">
+      <AttendanceReminderAndPWA />
       {/* Top Header */}
       <header className="bg-white/85 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200/80 shadow-subtle">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

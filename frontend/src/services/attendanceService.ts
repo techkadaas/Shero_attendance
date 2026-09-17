@@ -5,11 +5,14 @@ export const getTodayAttendance = async () => {
   return response.data;
 };
 
-export const checkIn = async (location?: { latitude?: number; longitude?: number }) => {
+export const checkIn = async (location?: { latitude?: number; longitude?: number }, customTime?: string) => {
   const payload: any = {};
   if (location && location.latitude !== undefined && location.longitude !== undefined) {
     payload.latitude = location.latitude;
     payload.longitude = location.longitude;
+  }
+  if (customTime) {
+    payload.customTime = customTime;
   }
   const response = await api.post('/attendance/check-in', payload);
   return response.data;
@@ -26,8 +29,12 @@ export const resumeSession = async () => {
   return response.data;
 };
 
-export const checkOut = async () => {
-  const response = await api.post('/attendance/check-out');
+export const checkOut = async (customTime?: string) => {
+  const payload: any = {};
+  if (customTime) {
+    payload.customTime = customTime;
+  }
+  const response = await api.post('/attendance/check-out', payload);
   return response.data;
 };
 

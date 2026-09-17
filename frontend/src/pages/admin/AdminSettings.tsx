@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { 
@@ -17,7 +18,10 @@ import {
   Compass,
   Calendar,
   Plus,
-  Trash2
+  Trash2,
+  Sparkles,
+  Layers,
+  X
 } from 'lucide-react';
 
 interface Holiday {
@@ -60,10 +64,34 @@ const AdminSettings = () => {
     description: ''
   });
 
+  // Bulk Holiday Modal State
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkYear, setBulkYear] = useState(new Date().getFullYear());
+  const [bulkRule, setBulkRule] = useState<'SUNDAYS' | 'SATURDAYS_2_4'>('SUNDAYS');
+  const [submittingBulk, setSubmittingBulk] = useState(false);
+
   useEffect(() => {
     fetchSettings();
     fetchHolidays();
   }, []);
+
+  const handleBulkAddHolidays = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingBulk(true);
+    try {
+      const res = await api.post('/admin/holidays/bulk', {
+        year: bulkYear,
+        rule: bulkRule,
+      });
+      toast.success(res.data.message || 'Bulk holidays added successfully!');
+      setHolidays(res.data.holidays || []);
+      setBulkModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to add bulk holidays');
+    } finally {
+      setSubmittingBulk(false);
+    }
+  };
 
   const fetchHolidays = async () => {
     try {
@@ -741,9 +769,19 @@ const AdminSettings = () => {
               <p className="text-xs text-slate-500">Configure official declared holidays for all employees and payroll</p>
             </div>
           </div>
-          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 self-start sm:self-auto">
-            {holidays.length} {holidays.length === 1 ? 'Holiday' : 'Holidays'} Configured
-          </span>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setBulkModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200/80 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+              <span>Bulk Add Holidays</span>
+            </button>
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+              {holidays.length} {holidays.length === 1 ? 'Holiday' : 'Holidays'}
+            </span>
+          </div>
         </div>
 
         {/* Add Holiday Form */}
@@ -892,6 +930,115 @@ const AdminSettings = () => {
           )}
         </div>
       </div>
+
+      {/* Bulk Add Holidays Modal */}
+      {bulkModalOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100 animate-slide-up space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Bulk Generate Holidays</h3>
+                  <p className="text-xs text-slate-500">Add weekly recurring off days at once</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBulkModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleBulkAddHolidays} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Target Year</label>
+                <select
+                  value={bulkYear}
+                  onChange={(e) => setBulkYear(parseInt(e.target.value))}
+                  className="w-full px-3.5 py-2.5 text-xs font-semibold bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                >
+                  <option value={2025}>2025</option>
+                  <option value={2026}>2026 (Current Year)</option>
+                  <option value={2027}>2027</option>
+                  <option value={2028}>2028</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Recurring Rule</label>
+                <div className="space-y-2">
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    bulkRule === 'SUNDAYS' ? 'bg-teal-50/70 border-teal-300 text-teal-900 font-semibold' : 'bg-slate-50/50 border-slate-200 text-slate-700'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="bulkRule"
+                      value="SUNDAYS"
+                      checked={bulkRule === 'SUNDAYS'}
+                      onChange={() => setBulkRule('SUNDAYS')}
+                      className="text-teal-600 focus:ring-teal-500"
+                    />
+                    <div className="text-xs">
+                      <p className="font-bold">All Sundays (52 Sundays)</p>
+                      <p className="text-[11px] text-slate-500">Marks all Sundays of {bulkYear} as Sunday Weekly Off</p>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    bulkRule === 'SATURDAYS_2_4' ? 'bg-teal-50/70 border-teal-300 text-teal-900 font-semibold' : 'bg-slate-50/50 border-slate-200 text-slate-700'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="bulkRule"
+                      value="SATURDAYS_2_4"
+                      checked={bulkRule === 'SATURDAYS_2_4'}
+                      onChange={() => setBulkRule('SATURDAYS_2_4')}
+                      className="text-teal-600 focus:ring-teal-500"
+                    />
+                    <div className="text-xs">
+                      <p className="font-bold">2nd & 4th Saturdays</p>
+                      <p className="text-[11px] text-slate-500">Marks 2nd and 4th Saturday of each month as official off</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 p-3 rounded-xl border border-amber-200/70 flex items-start gap-2 text-xs text-amber-800">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>Existing holiday dates will not be duplicated. Only new dates will be created.</span>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setBulkModalOpen(false)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingBulk}
+                  className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-60"
+                >
+                  {submittingBulk ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  <span>Generate Holidays</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

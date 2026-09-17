@@ -27,7 +27,7 @@ const getTodayAttendance = async (employeeId: string) => {
 router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const employeeId = req.user!.employeeId;
-    const { latitude, longitude } = req.body;
+    const { latitude, longitude, customTime } = req.body;
     const now = new Date();
     const existing = await getTodayAttendance(employeeId);
     if (existing) {
@@ -50,6 +50,8 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
     let checkInTimestamp = now;
     if (approvedWfh && approvedWfh.startTime) {
       checkInTimestamp = combineDateAndTimeToISTDate(todayStr, approvedWfh.startTime);
+    } else if (customTime && typeof customTime === 'string') {
+      checkInTimestamp = combineDateAndTimeToISTDate(todayStr, customTime);
     }
 
     if (workMode === 'WFO') {
@@ -99,10 +101,10 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
       attendanceId, 
       employeeId, 
       eventType: 'CHECK_IN', 
-      timestamp: now,
+      timestamp: checkInTimestamp,
       location: locationData,
     });
-    await workSessions().insertOne({ attendanceId, employeeId, startTime: now });
+    await workSessions().insertOne({ attendanceId, employeeId, startTime: checkInTimestamp });
     // Update user status
     await users().updateOne({ employeeId }, { $set: { status: 'WORKING' } });
     const attendance = await getTodayAttendance(employeeId);
@@ -167,7 +169,9 @@ router.post('/resume', authenticateToken, async (req: AuthRequest, res: Response
 router.post('/check-out', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const employeeId = req.user!.employeeId;
+    const { customTime } = req.body;
     const now = new Date();
+    const todayStr = getISTTodayString(now);
     const attendance = await getTodayAttendance(employeeId);
     if (!attendance) {
       return res.status(400).json({ error: 'No active attendance today' });
@@ -178,17 +182,24 @@ router.post('/check-out', authenticateToken, async (req: AuthRequest, res: Respo
     if (attendance.status === 'STOPPED') {
       return res.status(400).json({ error: 'You are currently stopped. Please resume before checking out.' });
     }
+
+    let checkOutTimestamp = now;
+    if (customTime && typeof customTime === 'string') {
+      checkOutTimestamp = combineDateAndTimeToISTDate(todayStr, customTime);
+    }
+
     const activeSession = attendance.workSessions.find((s: any) => !s.endTime);
     let sessionDuration = 0;
     if (activeSession) {
-      sessionDuration = calculateDurationSeconds(activeSession.startTime, now);
-      await workSessions().updateOne({ _id: activeSession._id }, { $set: { endTime: now, durationSeconds: sessionDuration } });
+      sessionDuration = calculateDurationSeconds(activeSession.startTime, checkOutTimestamp);
+      if (sessionDuration < 0) sessionDuration = 0;
+      await workSessions().updateOne({ _id: activeSession._id }, { $set: { endTime: checkOutTimestamp, durationSeconds: sessionDuration } });
     }
     await attendances().updateOne(
       { _id: attendance._id },
-      { $set: { status: 'CHECKED_OUT', checkOut: now }, $inc: { totalWorkingSeconds: sessionDuration } }
+      { $set: { status: 'CHECKED_OUT', checkOut: checkOutTimestamp }, $inc: { totalWorkingSeconds: sessionDuration } }
     );
-    await attendanceEvents().insertOne({ attendanceId: attendance._id, employeeId, eventType: 'CHECK_OUT', timestamp: now });
+    await attendanceEvents().insertOne({ attendanceId: attendance._id, employeeId, eventType: 'CHECK_OUT', timestamp: checkOutTimestamp });
     await users().updateOne({ employeeId }, { $set: { status: 'CHECKED_OUT' } });
     const updated = await getTodayAttendance(employeeId);
     res.json(updated);

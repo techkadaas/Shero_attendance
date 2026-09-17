@@ -629,6 +629,88 @@ router.post('/holidays', async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.post('/holidays/bulk', async (req: AuthRequest, res: Response) => {
+  try {
+    const { rule, year, items, name: customName, type: customType } = req.body;
+    const targetYear = parseInt(year) || new Date().getFullYear();
+    const existingHolidays = await holidays().find({}).toArray();
+    const existingDates = new Set(existingHolidays.map((h) => h.date));
+    
+    let toInsert: any[] = [];
+
+    if (Array.isArray(items) && items.length > 0) {
+      for (const item of items) {
+        if (item.date && !existingDates.has(item.date)) {
+          toInsert.push({
+            name: String(item.name || 'Holiday').trim(),
+            date: String(item.date).trim(),
+            type: item.type || 'COMPANY',
+            description: item.description || '',
+            createdAt: new Date(),
+          });
+          existingDates.add(item.date);
+        }
+      }
+    } else if (rule === 'SUNDAYS') {
+      const startDate = new Date(targetYear, 0, 1);
+      const endDate = new Date(targetYear, 11, 31);
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() === 0) { // Sunday
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          const dateStr = `${yyyy}-${mm}-${dd}`;
+          if (!existingDates.has(dateStr)) {
+            toInsert.push({
+              name: customName ? String(customName).trim() : 'Sunday Weekly Off',
+              date: dateStr,
+              type: customType || 'COMPANY',
+              description: `Recurring Sunday off for ${targetYear}`,
+              createdAt: new Date(),
+            });
+            existingDates.add(dateStr);
+          }
+        }
+      }
+    } else if (rule === 'SATURDAYS_2_4') {
+      const startDate = new Date(targetYear, 0, 1);
+      const endDate = new Date(targetYear, 11, 31);
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() === 6) { // Saturday
+          const dayOfMonth = d.getDate();
+          const weekNum = Math.ceil(dayOfMonth / 7);
+          if (weekNum === 2 || weekNum === 4) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            const dateStr = `${yyyy}-${mm}-${dd}`;
+            if (!existingDates.has(dateStr)) {
+              toInsert.push({
+                name: customName ? String(customName).trim() : `${weekNum === 2 ? '2nd' : '4th'} Saturday Off`,
+                date: dateStr,
+                type: customType || 'COMPANY',
+                description: `2nd/4th Saturday holiday for ${targetYear}`,
+                createdAt: new Date(),
+              });
+              existingDates.add(dateStr);
+            }
+          }
+        }
+      }
+    }
+
+    if (toInsert.length > 0) {
+      await holidays().insertMany(toInsert);
+    }
+
+    const updatedList = await holidays().find({}).sort({ date: 1 }).toArray();
+    res.json({ message: `Successfully added ${toInsert.length} holidays`, addedCount: toInsert.length, holidays: updatedList });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to bulk create holidays' });
+  }
+});
+
 router.delete('/holidays/:id', async (req: AuthRequest, res: Response) => {
   try {
     const id = new ObjectId(String(req.params.id));
