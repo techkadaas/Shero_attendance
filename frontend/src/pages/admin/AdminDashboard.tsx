@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../../services/api';
 import { formatDuration, formatTime, formatTime12 } from '../../utils/timeUtils';
 import { format } from 'date-fns';
@@ -305,10 +306,10 @@ const AdminDashboard = () => {
       )}
 
       {/* Set Office Timing Modal */}
-      {showTimingModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md relative p-6 space-y-5 border border-slate-100 animate-slide-up">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+      {showTimingModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md overflow-hidden border border-slate-100 animate-slide-up flex flex-col">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-2.5 bg-teal-50 text-teal-700 rounded-xl">
                   <Clock className="w-5 h-5" />
@@ -326,7 +327,7 @@ const AdminDashboard = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveTiming} className="space-y-4">
+            <form onSubmit={handleSaveTiming} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -337,7 +338,7 @@ const AdminDashboard = () => {
                     required
                     value={timingForm.officeStartTime}
                     onChange={(e) => setTimingForm({ ...timingForm, officeStartTime: e.target.value })}
-                    className="form-input font-mono"
+                    className="form-input font-mono text-xs"
                   />
                 </div>
 
@@ -350,55 +351,46 @@ const AdminDashboard = () => {
                     required
                     value={timingForm.officeEndTime}
                     onChange={(e) => setTimingForm({ ...timingForm, officeEndTime: e.target.value })}
-                    className="form-input font-mono"
+                    className="form-input font-mono text-xs"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Late Arrival Grace Period (Minutes)
+                  Grace Period (Minutes)
                 </label>
                 <input
                   type="number"
+                  required
                   min="0"
                   max="120"
-                  required
                   value={timingForm.graceMinutes}
                   onChange={(e) => setTimingForm({ ...timingForm, graceMinutes: parseInt(e.target.value) || 0 })}
-                  className="form-input"
+                  className="form-input font-mono text-xs"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Check-ins after {formatTime12(timingForm.officeStartTime)} + {timingForm.graceMinutes}m are counted as Late.
-                </p>
-              </div>
-
-              <div className="p-3 bg-teal-50/70 rounded-2xl border border-teal-100 flex items-center justify-between text-xs">
-                <span className="text-teal-800 font-semibold">Standard Shift Duration:</span>
-                <span className="font-extrabold text-teal-900 font-mono">
-                  {calculateShiftDuration(timingForm.officeStartTime, timingForm.officeEndTime)}
-                </span>
+                <p className="text-[10px] text-slate-400 mt-1">Check-ins after grace time are marked as Late Check-In.</p>
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowTimingModal(false)}
-                  className="btn-secondary flex-1"
+                  className="btn-secondary flex-1 py-2.5 text-xs font-semibold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={savingTiming}
-                  className="btn-primary flex-1 shadow-glow-teal"
+                  className="btn-primary flex-1 py-2.5 text-xs font-bold shadow-glow-teal"
                 >
-                  {savingTiming ? 'Saving...' : 'Save Configuration'}
+                  Save Policy
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

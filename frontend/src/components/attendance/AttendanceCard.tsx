@@ -181,13 +181,13 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
 
         /* State Machine: Active Work Day */
         <div className="space-y-6 my-6">
-          {/* Key Metrics Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* Key Metrics Grid (3 Clean Tiles) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             
             {/* Sign In Tile */}
             <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Sign In Time</p>
-              <p className="text-lg font-extrabold text-slate-900 font-mono">
+              <p className="text-xl font-extrabold text-slate-900 font-mono">
                 {formatTime(attendance.checkIn)}
               </p>
             </div>
@@ -206,7 +206,7 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 )}
               </div>
-              <p className="text-lg font-extrabold font-mono text-emerald-700">
+              <p className="text-xl font-extrabold font-mono text-emerald-700">
                 {status === 'CHECKED_OUT' ? (
                   formatDuration(attendance.totalWorkingSeconds)
                 ) : (
@@ -219,70 +219,27 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
               </p>
             </div>
 
-            {/* Break / Pause Time Tile */}
-            <div className={`p-4 rounded-2xl border transition-all ${
-              status === 'STOPPED' 
-                ? 'bg-amber-50/70 border-amber-200/80 text-amber-900' 
-                : 'bg-slate-50/80 border-slate-100 text-slate-900'
-            }`}>
-              <div className="flex items-center justify-between mb-1">
-                <p className={`text-[11px] font-bold uppercase tracking-wider ${status === 'STOPPED' ? 'text-amber-700' : 'text-slate-400'}`}>
-                  Break Time
-                </p>
-                {status === 'STOPPED' && (
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                )}
-              </div>
-              <p className="text-lg font-extrabold font-mono text-amber-700">
-                {formatDuration(attendance.totalStoppedSeconds)}
-              </p>
-            </div>
-
             {/* Sign Out Tile */}
             <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Sign Out Time</p>
-              <p className="text-lg font-extrabold text-slate-900 font-mono">
+              <p className="text-xl font-extrabold text-slate-900 font-mono">
                 {status === 'CHECKED_OUT' && attendance.checkOut ? formatTime(attendance.checkOut) : '--:--'}
               </p>
             </div>
           </div>
 
-          {/* Action Hub Buttons (Primary Actions) */}
+          {/* Primary Action Button: Sign Out Only */}
           <div className="pt-2">
             {status === 'WORKING' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  onClick={() => handleAction(stopSession, 'Break', 'Paused work. Break started.')}
-                  disabled={loadingAction !== null}
-                  className="py-3.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl shadow-sm active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
-                >
-                  <Coffee className="w-4 h-4" />
-                  <span>{loadingAction === 'Break' ? 'Taking Break...' : 'TAKE BREAK'}</span>
-                </button>
+              <div>
                 <button
                   onClick={() => handleAction(checkOut, 'Sign Out', 'Signed out successfully. Good work today!')}
                   disabled={loadingAction !== null}
-                  className="py-3.5 px-4 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-xl shadow-glow-teal active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
+                  className="w-full py-4 px-6 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-sm rounded-xl shadow-glow-teal active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>{loadingAction === 'Sign Out' ? 'Signing out...' : 'SIGN OUT FOR TODAY'}</span>
                 </button>
-              </div>
-            )}
-
-            {status === 'STOPPED' && (
-              <div className="space-y-2">
-                <button
-                  onClick={() => handleAction(resumeSession, 'Resume', 'Resumed working session!')}
-                  disabled={loadingAction !== null}
-                  className="w-full py-4 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm rounded-xl shadow-glow-emerald active:scale-[0.98] transition-all flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
-                >
-                  <Play className="w-4 h-4 fill-white" />
-                  <span>{loadingAction === 'Resume' ? 'Resuming Session...' : 'RESUME WORK'}</span>
-                </button>
-                <p className="text-center text-[11px] text-slate-400">
-                  Click to resume your work timer and conclude your break.
-                </p>
               </div>
             )}
             

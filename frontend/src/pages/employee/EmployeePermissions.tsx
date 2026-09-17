@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   getMyPermissions,
@@ -34,6 +35,9 @@ const EmployeePermissions = () => {
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const todayStr = new Date().toISOString().split('T')[0];
+  const [dayType, setDayType] = useState<'FULL_DAY' | 'HALF_DAY'>('FULL_DAY');
+  const [halfDaySlot, setHalfDaySlot] = useState<'FIRST_HALF' | 'SECOND_HALF'>('FIRST_HALF');
+  
   const [form, setForm] = useState<{
     date: string;
     startTime: string;
@@ -87,20 +91,42 @@ const EmployeePermissions = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (durationInfo.diffMins <= 0) {
-      toast.error('End time must be after start time');
-      return;
+    
+    let submitPayload = { ...form };
+    if (form.requestType === 'LEAVE' || form.requestType === 'WFH') {
+      if (dayType === 'FULL_DAY') {
+        submitPayload.startTime = '09:00';
+        submitPayload.endTime = '18:00';
+      } else {
+        if (halfDaySlot === 'FIRST_HALF') {
+          submitPayload.startTime = '09:00';
+          submitPayload.endTime = '13:30';
+        } else {
+          submitPayload.startTime = '13:30';
+          submitPayload.endTime = '18:00';
+        }
+      }
+    } else {
+      const dur = calculateDuration(form.startTime, form.endTime);
+      if (dur.diffMins <= 0) {
+        toast.error('End time must be after start time');
+        return;
+      }
     }
 
     try {
       setSubmitting(true);
-      await submitPermission(form);
+      await submitPermission(submitPayload);
       toast.success(
         form.requestType === 'WFH'
           ? 'WFH request submitted to your reporting manager!'
+          : form.requestType === 'LEAVE'
+          ? 'Leave application submitted successfully!'
           : 'Permission request submitted successfully!'
       );
       setShowModal(false);
+      setDayType('FULL_DAY');
+      setHalfDaySlot('FIRST_HALF');
       setForm({
         date: todayStr,
         startTime: '09:00',
@@ -496,49 +522,52 @@ const EmployeePermissions = () => {
         </>
       )}
 
-      {/* Request Permission / WFH Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fade-in">
-          <div className="bg-white w-full sm:rounded-3xl shadow-2xl sm:max-w-lg relative max-h-[90vh] flex flex-col overflow-hidden border border-slate-100 animate-slide-up">
+      {/* Request Permission / WFH / Leave Modal */}
+      {showModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-lg overflow-hidden border border-slate-100 animate-slide-up flex flex-col">
             {/* Header */}
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 shrink-0">
-              <div className="flex items-center space-x-2">
-                <div className="p-2.5 bg-teal-50 rounded-xl text-teal-700">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 bg-teal-50 rounded-xl text-teal-700 flex items-center justify-center font-bold">
                   <Clock className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-extrabold text-slate-900">New Request</h2>
-                  <p className="text-[11px] text-slate-400">Request WFH remote day, short permission, or leave</p>
+                  <h2 className="text-sm font-extrabold text-slate-900">New Work Request</h2>
+                  <p className="text-[11px] text-slate-500">Apply for WFH remote day, full/half leave, or permission</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100"
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Scrollable Form Body */}
-            <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+            {/* Form Body */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {/* Request Type Selector */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Request Category
+                  1. Request Category
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: 'WFH', label: 'Work From Home', icon: '🏠', desc: 'Remote day request' },
+                    { id: 'LEAVE', label: 'Leave', icon: '🌴', desc: 'Full or Half Day off' },
                     { id: 'PERMISSION', label: 'Permission', icon: '⏱️', desc: 'Short 1-2h errand' },
-                    { id: 'LEAVE', label: 'Full/Half Leave', icon: '🌴', desc: 'Planned time off' },
                   ].map((cat) => (
                     <button
                       type="button"
                       key={cat.id}
-                      onClick={() => setForm({ ...form, requestType: cat.id as any })}
+                      onClick={() => {
+                        setForm({ ...form, requestType: cat.id as any });
+                        setDayType('FULL_DAY');
+                      }}
                       className={`p-2.5 rounded-2xl border text-left transition-all ${
                         form.requestType === cat.id
-                          ? 'bg-teal-50/80 border-teal-500 ring-2 ring-teal-500/20 shadow-xs'
+                          ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
                           : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
@@ -552,91 +581,134 @@ const EmployeePermissions = () => {
                 </div>
               </div>
 
-              {/* WFH Notice Banner */}
-              {form.requestType === 'WFH' && (
-                <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-2xl text-xs text-indigo-900">
-                  <p className="font-bold flex items-center gap-1.5">
-                    <span>💡</span> WFH Policy & Login Rule
-                  </p>
-                  <p className="text-[11px] text-indigo-700 mt-1 leading-relaxed">
-                    Once your reporting manager approves this WFH request, your sign-in will start from your requested time and the office GPS perimeter will be waived for that day.
-                  </p>
+              {/* Leave or WFH: Duration Selector (Full Day vs Half Day) */}
+              {(form.requestType === 'LEAVE' || form.requestType === 'WFH') && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    2. Duration Option
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDayType('FULL_DAY')}
+                      className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
+                        dayType === 'FULL_DAY'
+                          ? 'bg-teal-600 text-white shadow-xs border-teal-600'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {form.requestType === 'LEAVE' ? '🌴 Full Day Leave' : '🏠 Full Day WFH'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDayType('HALF_DAY')}
+                      className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
+                        dayType === 'HALF_DAY'
+                          ? 'bg-teal-600 text-white shadow-xs border-teal-600'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {form.requestType === 'LEAVE' ? '🌓 Half Day Leave' : '🌓 Half Day WFH'}
+                    </button>
+                  </div>
+
+                  {/* Half Day Slot Selection */}
+                  {dayType === 'HALF_DAY' && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setHalfDaySlot('FIRST_HALF')}
+                        className={`p-2 rounded-lg border text-[11px] font-semibold transition-all text-center ${
+                          halfDaySlot === 'FIRST_HALF'
+                            ? 'bg-indigo-50 text-indigo-800 border-indigo-300 ring-1 ring-indigo-400'
+                            : 'bg-white text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        🌅 1st Half (09:00 - 01:30 PM)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHalfDaySlot('SECOND_HALF')}
+                        className={`p-2 rounded-lg border text-[11px] font-semibold transition-all text-center ${
+                          halfDaySlot === 'SECOND_HALF'
+                            ? 'bg-indigo-50 text-indigo-800 border-indigo-300 ring-1 ring-indigo-400'
+                            : 'bg-white text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        🌇 2nd Half (01:30 - 06:00 PM)
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Routing Approver Badge */}
-              <div className="p-3 bg-teal-50/70 rounded-2xl border border-teal-100/80 text-xs">
-                <p className="text-teal-900 font-bold flex items-center">
-                  <UserCheck className="w-4 h-4 mr-1.5 text-teal-600" />
-                  Routing to Approver:
-                </p>
-                <p className="text-teal-800 text-[11px] mt-0.5 pl-5">
-                  {user?.reportingManager ? `${user.reportingManager.name} (${user.reportingManager.employeeId})` : 'Company Administrator'}
-                </p>
-              </div>
-
+              {/* Date Selection */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Date</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Select Date <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="date"
                   required
                   value={form.date}
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="form-input"
+                  className="form-input text-xs"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Start Time</label>
-                  <input
-                    type="time"
-                    required
-                    value={form.startTime}
-                    onChange={(e) => setForm({ ...form, startTime: e.target.value })}
-                    className="form-input font-mono"
-                  />
+              {/* Time Picker ONLY for PERMISSION (Hidden for Full Day Leave/WFH) */}
+              {form.requestType === 'PERMISSION' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Start Time</label>
+                    <input
+                      type="time"
+                      required
+                      value={form.startTime}
+                      onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                      className="form-input font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">End Time</label>
+                    <input
+                      type="time"
+                      required
+                      value={form.endTime}
+                      onChange={(e) => setForm({ ...form, endTime: e.target.value })}
+                      className="form-input font-mono text-xs"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">End Time</label>
-                  <input
-                    type="time"
-                    required
-                    value={form.endTime}
-                    onChange={(e) => setForm({ ...form, endTime: e.target.value })}
-                    className="form-input font-mono"
-                  />
-                </div>
-              </div>
+              )}
 
-              {/* Dynamic Live Duration Indicator */}
-              <div
-                className={`p-3.5 rounded-2xl border flex items-center justify-between transition-colors ${
-                  durationInfo.diffMins > 0
-                    ? 'bg-slate-50 border-slate-200'
-                    : 'bg-rose-50 border-rose-200 text-rose-700'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Clock4 className={`w-4 h-4 ${durationInfo.diffMins > 0 ? 'text-teal-600' : 'text-rose-500'}`} />
-                  <span className="text-xs font-semibold text-slate-600">Calculated Duration:</span>
-                </div>
-                <span className={`text-xs font-mono font-black ${durationInfo.diffMins > 0 ? 'text-teal-700' : 'text-rose-600'}`}>
-                  {durationInfo.diffMins > 0 ? `${durationInfo.formatted} (${durationInfo.decimalHours} hrs)` : 'Invalid timing'}
+              {/* Live Info Banner */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
+                <span className="text-slate-600 font-medium">
+                  {form.requestType === 'LEAVE'
+                    ? dayType === 'FULL_DAY' ? '🌴 Full Day Off (1 Working Day)' : `🌓 Half Day Off (${halfDaySlot === 'FIRST_HALF' ? 'Morning 9:00 - 1:30' : 'Afternoon 1:30 - 6:00'})`
+                    : form.requestType === 'WFH'
+                    ? dayType === 'FULL_DAY' ? '🏠 Full Day Remote (09:00 AM – 06:00 PM)' : `🏠 Half Day Remote (${halfDaySlot === 'FIRST_HALF' ? 'Morning' : 'Afternoon'})`
+                    : `⏱️ Short Permission (${durationInfo.formatted})`}
+                </span>
+                <span className="font-bold text-teal-700">
+                  {user?.reportingManager ? `→ ${user.reportingManager.name}` : '→ Admin'}
                 </span>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Reason for {form.requestType === 'WFH' ? 'WFH' : 'Request'}
+                  Reason <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   rows={2}
                   required
                   placeholder={
                     form.requestType === 'WFH'
-                      ? 'Explain why you are requesting to work from home...'
-                      : 'Explain why you are requesting this absence...'
+                      ? 'Explain reason for working from home...'
+                      : form.requestType === 'LEAVE'
+                      ? 'Specify reason for taking leave...'
+                      : 'Specify reason for short permission...'
                   }
                   value={form.reason}
                   onChange={(e) => setForm({ ...form, reason: e.target.value })}
@@ -647,25 +719,26 @@ const EmployeePermissions = () => {
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={submitting || durationInfo.diffMins <= 0}
-                  className="w-full btn-primary py-3.5 shadow-glow-teal"
+                  disabled={submitting}
+                  className="w-full btn-primary py-3 shadow-glow-teal text-xs font-bold"
                 >
-                  <Send className="w-4 h-4 mr-1.5" />
-                  {submitting ? 'Submitting Request...' : `Submit ${form.requestType === 'WFH' ? 'WFH' : 'Permission'} Request`}
+                  <Send className="w-3.5 h-3.5 mr-1.5" />
+                  {submitting ? 'Submitting Request...' : `Submit ${form.requestType === 'WFH' ? 'WFH' : form.requestType === 'LEAVE' ? 'Leave' : 'Permission'} Application`}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Review Modal */}
-      {reviewModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md relative p-6 space-y-4 border border-slate-100 animate-slide-up">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900">
-                {reviewModal.status === 'APPROVED' ? 'Approve' : 'Reject'} {reviewModal.request?.requestType === 'WFH' ? 'WFH' : 'Permission'} Request
+      {reviewModal.isOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md overflow-hidden border border-slate-100 animate-slide-up flex flex-col">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
+              <h3 className="text-sm font-extrabold text-slate-900">
+                {reviewModal.status === 'APPROVED' ? 'Approve' : 'Reject'} {reviewModal.request?.requestType || 'Request'}
               </h3>
               <button
                 onClick={() => setReviewModal({ isOpen: false, request: null, status: 'APPROVED', comment: '' })}
@@ -675,56 +748,65 @@ const EmployeePermissions = () => {
               </button>
             </div>
 
-            <div className="p-3.5 bg-slate-50 rounded-2xl text-xs space-y-1.5 border border-slate-100">
-              <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
-                <span className="text-slate-500 font-medium">Type:</span>
-                {renderTypeBadge(reviewModal.request?.requestType)}
+            <div className="p-6 space-y-4">
+              <div className="p-3.5 bg-slate-50 rounded-2xl text-xs space-y-1.5 border border-slate-100">
+                <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Type:</span>
+                  {renderTypeBadge(reviewModal.request?.requestType)}
+                </div>
+                <p><strong className="text-slate-700">Employee:</strong> {reviewModal.request?.employeeName} ({reviewModal.request?.employeeId})</p>
+                <p><strong className="text-slate-700">Date:</strong> {reviewModal.request?.date}</p>
+                <p>
+                  <strong className="text-slate-700">Duration:</strong> {
+                    reviewModal.request?.startTime === '09:00' && reviewModal.request?.endTime === '18:00'
+                      ? 'Full Day'
+                      : `${reviewModal.request?.startTime} – ${reviewModal.request?.endTime} (${reviewModal.request?.totalHoursFormatted || ''})`
+                  }
+                </p>
+                <p><strong className="text-slate-700">Reason:</strong> {reviewModal.request?.reason || 'None'}</p>
               </div>
-              <p><strong className="text-slate-700">Employee:</strong> {reviewModal.request?.employeeName} ({reviewModal.request?.employeeId})</p>
-              <p><strong className="text-slate-700">Date:</strong> {reviewModal.request?.date}</p>
-              <p><strong className="text-slate-700">Requested Timing:</strong> {reviewModal.request?.startTime} – {reviewModal.request?.endTime} ({reviewModal.request?.totalHoursFormatted})</p>
-              <p><strong className="text-slate-700">Reason:</strong> {reviewModal.request?.reason || 'None'}</p>
-            </div>
 
-            {reviewModal.request?.requestType === 'WFH' && reviewModal.status === 'APPROVED' && (
-              <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-[11px] text-indigo-800">
-                ⭐ <strong>WFH Approval Effect:</strong> The employee's work login time will automatically start from <strong>{reviewModal.request?.startTime}</strong> on {reviewModal.request?.date}.
+              {reviewModal.request?.requestType === 'WFH' && reviewModal.status === 'APPROVED' && (
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-[11px] text-indigo-800">
+                  ⭐ <strong>WFH Approval:</strong> Employee's work login is authorized and office GPS perimeter is waived on {reviewModal.request?.date}.
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Manager Remark / Note (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Enter feedback for employee..."
+                  value={reviewModal.comment}
+                  onChange={(e) => setReviewModal({ ...reviewModal, comment: e.target.value })}
+                  className="form-input text-xs"
+                />
               </div>
-            )}
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Manager Remark / Note (Optional)
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Enter feedback or notes for the employee..."
-                value={reviewModal.comment}
-                onChange={(e) => setReviewModal({ ...reviewModal, comment: e.target.value })}
-                className="form-input text-xs"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setReviewModal({ isOpen: false, request: null, status: 'APPROVED', comment: '' })}
-                className="btn-secondary flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReview}
-                className={`flex-1 py-2.5 text-white font-bold text-xs rounded-xl shadow-sm transition-all ${
-                  reviewModal.status === 'APPROVED'
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-rose-600 hover:bg-rose-700'
-                }`}
-              >
-                Confirm {reviewModal.status === 'APPROVED' ? 'Approval' : 'Rejection'}
-              </button>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setReviewModal({ isOpen: false, request: null, status: 'APPROVED', comment: '' })}
+                  className="btn-secondary flex-1 py-2.5 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReview}
+                  className={`flex-1 py-2.5 text-white font-bold text-xs rounded-xl shadow-sm transition-all ${
+                    reviewModal.status === 'APPROVED'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
+                >
+                  Confirm {reviewModal.status === 'APPROVED' ? 'Approval' : 'Rejection'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

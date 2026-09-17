@@ -227,13 +227,13 @@ const AdminSettings = () => {
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  Office Geofence & Location Boundary
+                  Office Location & Geofence Coordinates
                   <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200/80">
-                    WFO Security
+                    Manual Input Enabled
                   </span>
                 </h3>
                 <p className="text-xs text-slate-500">
-                  WFO employees can only log in and mark attendance within this physical office perimeter.
+                  Directly enter office address and coordinates below. WFO employees must be within this perimeter to check in.
                 </p>
               </div>
             </div>
@@ -243,10 +243,42 @@ const AdminSettings = () => {
               onClick={handleDetectLocation}
               disabled={detectingLocation}
               className="px-4 py-2 bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2 active:scale-95 shrink-0"
+              title="Auto-detect coordinates using device GPS"
             >
               <Navigation className={`w-3.5 h-3.5 text-teal-600 ${detectingLocation ? 'animate-spin' : ''}`} />
-              {detectingLocation ? 'Detecting GPS...' : 'Use My Current Location'}
+              {detectingLocation ? 'Detecting GPS...' : 'Auto-Fill from My Current Location'}
             </button>
+          </div>
+
+          {/* Quick Location Preset Selector */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-xs font-bold text-slate-500 mr-1">Quick Presets:</span>
+            {[
+              { label: '🏢 Chennai HQ', lat: 13.0827, lng: 80.2707, addr: 'Shero HQ, Anna Nagar, Chennai' },
+              { label: '🏢 Bangalore Office', lat: 12.9716, lng: 77.5946, addr: 'Shero Tech Hub, Koramangala, Bangalore' },
+              { label: '🏢 Hyderabad Hub', lat: 17.3850, lng: 78.4867, addr: 'Shero Kitchen, HITEC City, Hyderabad' },
+              { label: '🏢 Coimbatore Central', lat: 11.0168, lng: 76.9558, addr: 'Shero Centre, RS Puram, Coimbatore' },
+            ].map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => {
+                  setSettings({
+                    ...settings,
+                    officeLocation: {
+                      ...settings.officeLocation,
+                      latitude: preset.lat,
+                      longitude: preset.lng,
+                      address: preset.addr,
+                    },
+                  });
+                  toast.success(`Coordinates loaded for ${preset.label}`);
+                }}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-teal-50 hover:border-teal-300 text-slate-700 hover:text-teal-800 text-xs font-semibold transition-all"
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

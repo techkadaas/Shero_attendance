@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   getTeamPermissions,
   updatePermissionStatus,
@@ -362,12 +363,12 @@ const AdminPermissions = () => {
       </div>
 
       {/* Review Modal */}
-      {reviewModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md relative p-6 space-y-4 border border-slate-100 animate-slide-up">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900">
-                {reviewModal.status === 'APPROVED' ? 'Approve' : 'Reject'} {reviewModal.request?.requestType === 'WFH' ? 'WFH' : 'Permission'} Request
+      {reviewModal.isOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md overflow-hidden border border-slate-100 animate-slide-up flex flex-col">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
+              <h3 className="text-sm font-extrabold text-slate-900">
+                {reviewModal.status === 'APPROVED' ? 'Approve' : 'Reject'} {reviewModal.request?.requestType || 'Request'}
               </h3>
               <button
                 onClick={() => setReviewModal({ isOpen: false, request: null, status: 'APPROVED', comment: '' })}
@@ -377,56 +378,65 @@ const AdminPermissions = () => {
               </button>
             </div>
 
-            <div className="p-3.5 bg-slate-50 rounded-2xl text-xs space-y-1.5 border border-slate-100">
-              <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
-                <span className="text-slate-500 font-medium">Type:</span>
-                {renderTypeBadge(reviewModal.request?.requestType)}
+            <div className="p-6 space-y-4">
+              <div className="p-3.5 bg-slate-50 rounded-2xl text-xs space-y-1.5 border border-slate-100">
+                <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Type:</span>
+                  {renderTypeBadge(reviewModal.request?.requestType)}
+                </div>
+                <p><strong className="text-slate-700">Employee:</strong> {reviewModal.request?.employeeName} ({reviewModal.request?.employeeId})</p>
+                <p><strong className="text-slate-700">Date:</strong> {reviewModal.request?.date}</p>
+                <p>
+                  <strong className="text-slate-700">Duration:</strong> {
+                    reviewModal.request?.startTime === '09:00' && reviewModal.request?.endTime === '18:00'
+                      ? 'Full Day'
+                      : `${reviewModal.request?.startTime} – ${reviewModal.request?.endTime} (${reviewModal.request?.totalHoursFormatted || ''})`
+                  }
+                </p>
+                <p><strong className="text-slate-700">Reason:</strong> {reviewModal.request?.reason || 'None'}</p>
               </div>
-              <p><strong className="text-slate-700">Employee:</strong> {reviewModal.request?.employeeName} ({reviewModal.request?.employeeId})</p>
-              <p><strong className="text-slate-700">Date:</strong> {reviewModal.request?.date}</p>
-              <p><strong className="text-slate-700">Timing:</strong> {reviewModal.request?.startTime} – {reviewModal.request?.endTime} ({reviewModal.request?.totalHoursFormatted})</p>
-              <p><strong className="text-slate-700">Reason:</strong> {reviewModal.request?.reason || 'None'}</p>
-            </div>
 
-            {reviewModal.request?.requestType === 'WFH' && reviewModal.status === 'APPROVED' && (
-              <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-[11px] text-indigo-800">
-                ⭐ <strong>WFH Approval Effect:</strong> The employee's work login time will automatically start from <strong>{reviewModal.request?.startTime}</strong> on {reviewModal.request?.date}.
+              {reviewModal.request?.requestType === 'WFH' && reviewModal.status === 'APPROVED' && (
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-[11px] text-indigo-800">
+                  ⭐ <strong>WFH Approval Effect:</strong> The employee's work login is authorized from <strong>{reviewModal.request?.startTime}</strong> and office GPS perimeter is waived on {reviewModal.request?.date}.
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Optional Remark / Comment
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Add notes for the employee..."
+                  value={reviewModal.comment}
+                  onChange={(e) => setReviewModal({ ...reviewModal, comment: e.target.value })}
+                  className="form-input text-xs"
+                />
               </div>
-            )}
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Optional Remark / Comment
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Add notes for the employee..."
-                value={reviewModal.comment}
-                onChange={(e) => setReviewModal({ ...reviewModal, comment: e.target.value })}
-                className="form-input text-xs"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setReviewModal({ isOpen: false, request: null, status: 'APPROVED', comment: '' })}
-                className="btn-secondary flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReview}
-                className={`flex-1 py-2.5 text-white font-bold text-xs rounded-xl shadow-sm transition-all ${
-                  reviewModal.status === 'APPROVED'
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-rose-600 hover:bg-rose-700'
-                }`}
-              >
-                Confirm {reviewModal.status === 'APPROVED' ? 'Approval' : 'Rejection'}
-              </button>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setReviewModal({ isOpen: false, request: null, status: 'APPROVED', comment: '' })}
+                  className="btn-secondary flex-1 py-2.5 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReview}
+                  className={`flex-1 py-2.5 text-white font-bold text-xs rounded-xl shadow-sm transition-all ${
+                    reviewModal.status === 'APPROVED'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
+                >
+                  Confirm {reviewModal.status === 'APPROVED' ? 'Approval' : 'Rejection'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
