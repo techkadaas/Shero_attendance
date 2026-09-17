@@ -1,30 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getTodayAttendance } from '../../services/attendanceService';
+import api from '../../services/api';
 import AttendanceCard from '../../components/attendance/AttendanceCard';
 import AttendanceTimeline from '../../components/attendance/AttendanceTimeline';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
-import { Clock4, CalendarDays, IndianRupee, Sparkles, Activity, Building2, Home } from 'lucide-react';
+import { Clock4, CalendarDays, IndianRupee, Sparkles, Activity, Building2, Home, Palmtree, UserCheck } from 'lucide-react';
 
 const EmployeeDashboard = () => {
   const { user } = useAuth();
   const [attendance, setAttendance] = useState<any>(null);
+  const [holidays, setHolidays] = useState<any[]>([]);
+  const [leaveSummary, setLeaveSummary] = useState({ totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 });
   const [loading, setLoading] = useState(true);
 
-  const fetchAttendance = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const data = await getTodayAttendance();
-      setAttendance(data);
+      const [attData, holidayRes, leaveRes] = await Promise.all([
+        getTodayAttendance(),
+        api.get('/attendance/holidays').catch(() => ({ data: [] })),
+        api.get('/attendance/leave-summary').catch(() => ({ data: { totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 } })),
+      ]);
+      setAttendance(attData);
+      setHolidays(holidayRes.data || []);
+      setLeaveSummary(leaveRes.data || { totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 });
     } catch (error) {
-      console.error('Failed to fetch today attendance', error);
+      console.error('Failed to fetch dashboard data', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAttendance();
+    fetchDashboardData();
   }, []);
 
   if (loading) {
@@ -99,7 +108,7 @@ const EmployeeDashboard = () => {
       {/* Main Grid: Cockpit + Timeline */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <AttendanceCard attendance={attendance} onRefresh={fetchAttendance} />
+          <AttendanceCard attendance={attendance} onRefresh={fetchDashboardData} />
         </div>
         
         <div className="lg:col-span-1">
@@ -127,6 +136,112 @@ const EmployeeDashboard = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Row: Office Holidays & Leave Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* Office Holidays Widget */}
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-card space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
+                <Palmtree className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Upcoming Office Holidays</h3>
+                <p className="text-[11px] text-slate-500">Official company declared holidays</p>
+              </div>
+            </div>
+            <Link
+              to="/employee/attendance"
+              className="text-xs font-bold text-teal-700 hover:text-teal-800"
+            >
+              View All ({holidays.length})
+            </Link>
+          </div>
+
+          {holidays.length === 0 ? (
+            <div className="py-6 text-center text-xs text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              No holidays listed at the moment.
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {holidays.slice(0, 4).map((h) => {
+                const d = new Date(h.date + 'T00:00:00');
+                return (
+                  <div key={h._id || h.date} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 border border-slate-100 text-xs">
+                    <div>
+                      <p className="font-bold text-slate-900">{h.name}</p>
+                      <p className="text-[11px] text-slate-500">
+                        {d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                      h.type === 'NATIONAL' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      h.type === 'COMPANY' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                      'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}>
+                      {h.type || 'FESTIVAL'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Leave Balance & Requests Widget */}
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-card space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                  <CalendarDays className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">My Leave Summary</h3>
+                  <p className="text-[11px] text-slate-500">Approved leaves & days off tracking</p>
+                </div>
+              </div>
+              <Link
+                to="/employee/permissions"
+                className="text-xs font-bold text-teal-700 hover:text-teal-800"
+              >
+                Apply Leave
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-100">
+                <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">This Month</span>
+                <span className="text-2xl font-extrabold font-mono text-rose-900 mt-1 block">
+                  {leaveSummary.totalLeaveDaysMonth} Days
+                </span>
+                <span className="text-[10px] text-rose-600 font-medium mt-0.5 block">Approved Leave Days</span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">This Year</span>
+                <span className="text-2xl font-extrabold font-mono text-slate-900 mt-1 block">
+                  {leaveSummary.totalLeaveDaysYear} Days
+                </span>
+                <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">Total Approved in {new Date().getFullYear()}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <Link
+              to="/employee/permissions"
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <Clock4 className="w-3.5 h-3.5 text-teal-600" />
+              <span>Request Full/Half Day Leave or WFH</span>
+            </Link>
+          </div>
+        </div>
+
       </div>
     </div>
   );

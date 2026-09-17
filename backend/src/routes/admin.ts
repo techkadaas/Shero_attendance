@@ -267,6 +267,58 @@ router.get('/employees', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// --- Fetch single employee entire profile details ---
+router.get('/employees/:id/detail', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = String(req.params.id);
+    let query: any = { employeeId: id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { employeeId: id }] };
+    }
+    const emp = await users().findOne(query);
+    if (!emp) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    let manager: any = null;
+    if (emp.reportingManagerId && ObjectId.isValid(emp.reportingManagerId)) {
+      manager = await users().findOne({ _id: new ObjectId(emp.reportingManagerId) });
+    }
+
+    // Recent attendance count and leaves
+    const recentRecords = await attendances()
+      .find({ employeeId: emp.employeeId })
+      .sort({ date: -1 })
+      .limit(10)
+      .toArray();
+
+    const approvedLeaves = await permissions()
+      .find({ employeeId: emp.employeeId, requestType: 'LEAVE', status: 'APPROVED' })
+      .sort({ date: -1 })
+      .toArray();
+
+    res.json({
+      employee: {
+        ...emp,
+        reportingManager: manager
+          ? {
+              id: manager._id,
+              name: manager.name,
+              employeeId: manager.employeeId,
+              email: manager.email,
+              role: manager.role,
+            }
+          : null,
+      },
+      recentAttendance: recentRecords,
+      approvedLeaves,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch employee detail' });
+  }
+});
+
 // --- Fetch a specific employee's attendance history ---
 router.get('/employees/:employeeId/attendance', async (req: AuthRequest, res: Response) => {
   try {

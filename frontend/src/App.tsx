@@ -8,6 +8,7 @@ import EmployeeDashboard from './pages/employee/EmployeeDashboard';
 import AdminLayout from './layouts/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminEmployees from './pages/admin/AdminEmployees';
+import AdminEmployeeDetail from './pages/admin/AdminEmployeeDetail';
 import AdminEmployeeAttendance from './pages/admin/AdminEmployeeAttendance';
 import AdminPayroll from './pages/admin/AdminPayroll';
 import AdminEmployeePayrollDetail from './pages/admin/AdminEmployeePayrollDetail';
@@ -54,6 +55,7 @@ const App = () => {
           }>
             <Route index element={<AdminDashboard />} />
             <Route path="employees" element={<AdminEmployees />} />
+            <Route path="employees/:id" element={<AdminEmployeeDetail />} />
             <Route path="employees/:id/attendance" element={<AdminEmployeeAttendance />} />
             <Route path="permissions" element={<AdminPermissions />} />
             <Route path="payroll" element={<AdminPayroll />} />

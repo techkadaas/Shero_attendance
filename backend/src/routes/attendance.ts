@@ -327,5 +327,31 @@ router.get('/holidays', authenticateToken, async (req: AuthRequest, res: Respons
   }
 });
 
+// --- Employee Leave Summary ---
+router.get('/leave-summary', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const employeeId = req.user!.employeeId;
+    const currentYear = new Date().getFullYear();
+    const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+
+    const approvedLeaves = await permissions().find({
+      employeeId,
+      requestType: 'LEAVE',
+      status: 'APPROVED',
+    }).sort({ date: -1 }).toArray();
+
+    const currentMonthLeaves = approvedLeaves.filter(l => l.date && l.date.startsWith(`${currentYear}-${currentMonth}`));
+
+    res.json({
+      totalLeaveDaysYear: approvedLeaves.length,
+      totalLeaveDaysMonth: currentMonthLeaves.length,
+      approvedLeaves,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch leave summary' });
+  }
+});
+
 export default router;
 

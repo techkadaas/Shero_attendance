@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { Eye, EyeOff, X, Calendar, Plus, IndianRupee, Edit, UserCheck, UserCog, Search, ShieldCheck, Users, Building2, Home, ArrowRight, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -45,15 +45,6 @@ const AdminEmployees = () => {
     showPassword: false,
   });
 
-  const initialSalaryData = { basicSalary: '', grossSalary: '', pfApplicable: false, esiApplicable: false, otherDeductions: '' };
-  const [salaryModal, setSalaryModal] = useState<{ isOpen: boolean; employee: any; data: any }>({ isOpen: false, employee: null, data: initialSalaryData });
-
-  const [managerModal, setManagerModal] = useState<{ isOpen: boolean; employee: any; reportingManagerId: string }>({
-    isOpen: false,
-    employee: null,
-    reportingManagerId: '',
-  });
-
   const viewAttendanceHistory = (emp: any) => {
     navigate(`/admin/employees/${emp.employeeId}/attendance`);
   };
@@ -90,11 +81,6 @@ const AdminEmployees = () => {
       ...editModal,
       form: { ...editModal.form, [e.target.name]: value },
     });
-  };
-
-  const handleSalaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setSalaryModal({ ...salaryModal, data: { ...salaryModal.data, [e.target.name]: value } });
   };
 
   const handleNextStep = () => {
@@ -162,61 +148,11 @@ const AdminEmployees = () => {
     if (!editModal.employee) return;
     try {
       await api.put(`/admin/employees/${editModal.employee._id}`, editModal.form);
-      toast.success('Employee updated successfully!');
+      toast.success('Employee details & salary updated successfully!');
       setEditModal({ isOpen: false, employee: null, form: initialForm, showPassword: false });
       fetchEmployees();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to update employee');
-    }
-  };
-
-  const handleUpdateSalary = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!salaryModal.employee) return;
-    try {
-      await api.put(`/admin/employees/${salaryModal.employee._id}/salary`, salaryModal.data);
-      toast.success('Salary configuration saved successfully!');
-      setSalaryModal({ isOpen: false, employee: null, data: initialSalaryData });
-      fetchEmployees();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to update salary');
-    }
-  };
-
-  const openSalaryModal = (emp: any) => {
-    setSalaryModal({
-      isOpen: true,
-      employee: emp,
-      data: {
-        basicSalary: emp.basicSalary !== undefined ? String(emp.basicSalary) : '',
-        grossSalary: emp.grossSalary !== undefined ? String(emp.grossSalary) : '',
-        pfApplicable: Boolean(emp.pfApplicable),
-        esiApplicable: Boolean(emp.esiApplicable),
-        otherDeductions: emp.otherDeductions !== undefined ? String(emp.otherDeductions) : '',
-      },
-    });
-  };
-
-  const openManagerModal = (emp: any) => {
-    setManagerModal({
-      isOpen: true,
-      employee: emp,
-      reportingManagerId: emp.reportingManager?.id || emp.reportingManagerId || '',
-    });
-  };
-
-  const handleUpdateManager = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!managerModal.employee) return;
-    try {
-      await api.put(`/admin/employees/${managerModal.employee._id}/manager`, {
-        reportingManagerId: managerModal.reportingManagerId || null,
-      });
-      toast.success('Reporting manager updated!');
-      setManagerModal({ isOpen: false, employee: null, reportingManagerId: '' });
-      fetchEmployees();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to update reporting manager');
     }
   };
 
@@ -305,40 +241,40 @@ const AdminEmployees = () => {
             <thead className="bg-slate-50/75">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee ID</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee Name</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Work Mode</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Reporting Manager</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Gross Base</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-xs">Loading directory...</td></tr>
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-xs">Loading directory...</td></tr>
               ) : filteredEmployees.length === 0 ? (
-                <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">No matching employees found.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">No matching employees found.</td></tr>
               ) : (
                 filteredEmployees.map((emp) => (
                   <tr key={emp._id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-bold text-slate-800">
-                      {emp.employeeId}
+                      <Link to={`/admin/employees/${emp._id}`} className="hover:text-teal-600 transition-colors">
+                        {emp.employeeId}
+                      </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-800 font-bold flex items-center justify-center text-xs border border-teal-100">
+                      <Link to={`/admin/employees/${emp._id}`} className="flex items-center space-x-3 group">
+                        <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-800 font-bold flex items-center justify-center text-xs border border-teal-100 group-hover:scale-105 transition-transform">
                           {emp.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-slate-900">{emp.name}</p>
+                          <p className="text-xs font-bold text-slate-900 group-hover:text-teal-700 transition-colors">{emp.name}</p>
                           <p className="text-[10px] text-slate-400">{emp.email}</p>
                         </div>
-                      </div>
+                      </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {emp.workMode === 'HYBRID' ? (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                          <Building2 className="w-3 h-3 mr-1 text-purple-600" />
+                          <span className="mr-1 text-xs">🏢+🏠</span>
                           Hybrid (Flex)
                         </span>
                       ) : emp.workMode === 'WFH' ? (
@@ -353,19 +289,6 @@ const AdminEmployees = () => {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs">
-                      {emp.reportingManager ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold bg-teal-50 text-teal-800 border border-teal-100">
-                          <UserCheck className="w-3 h-3 mr-1 text-teal-600" />
-                          {emp.reportingManager.name}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 text-xs italic">Unassigned</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-bold text-slate-800">
-                      {emp.grossSalary ? `₹${emp.grossSalary.toLocaleString('en-IN')}` : <span className="text-slate-400">Not set</span>}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2.5 py-0.5 inline-flex text-[11px] font-bold rounded-full border ${
                         emp.status === 'ACTIVE' ? 'bg-slate-100 text-slate-700 border-slate-200' : 
@@ -377,34 +300,20 @@ const AdminEmployees = () => {
                         {emp.status === 'STOPPED' ? 'LEAVE' : emp.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right space-x-1.5">
-                      <button
-                        onClick={() => openEditModal(emp)}
-                        className="inline-flex items-center text-xs font-bold text-slate-700 hover:text-teal-700 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 transition-colors"
-                        title="Edit Employee ID, Work Mode, Password & Details"
-                      >
-                        <UserCog className="w-3.5 h-3.5 mr-1 text-teal-600" /> Edit
-                      </button>
-                      <button
-                        onClick={() => openManagerModal(emp)}
-                        className="inline-flex items-center text-xs font-bold text-slate-700 hover:text-teal-700 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 transition-colors"
-                        title="Assign Supervisor"
-                      >
-                        <UserCheck className="w-3.5 h-3.5 mr-1 text-teal-600" /> Manager
-                      </button>
-                      <button
-                        onClick={() => openSalaryModal(emp)}
-                        className="inline-flex items-center text-xs font-bold text-slate-700 hover:text-teal-700 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 transition-colors"
-                        title="Configure Salary"
-                      >
-                        <Edit className="w-3.5 h-3.5 mr-1" /> Salary
-                      </button>
+                    <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
                       <button
                         onClick={() => viewAttendanceHistory(emp)}
-                        className="inline-flex items-center text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-2.5 py-1.5 rounded-xl border border-teal-200 transition-colors"
+                        className="inline-flex items-center text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-xl border border-teal-200 transition-colors"
                         title="View Attendance History"
                       >
                         <Calendar className="w-3.5 h-3.5 mr-1" /> Logs
+                      </button>
+                      <button
+                        onClick={() => openEditModal(emp)}
+                        className="inline-flex items-center text-xs font-bold text-slate-700 hover:text-teal-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition-colors"
+                        title="Edit Employee ID, Manager, Salary & Credentials"
+                      >
+                        <UserCog className="w-3.5 h-3.5 mr-1 text-teal-600" /> Edit
                       </button>
                     </td>
                   </tr>
@@ -429,7 +338,7 @@ const AdminEmployees = () => {
           filteredEmployees.map((emp) => (
             <div key={emp._id} className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-card space-y-3">
               <div className="flex justify-between items-start pb-2 border-b border-slate-100">
-                <div className="flex items-center space-x-2.5">
+                <Link to={`/admin/employees/${emp._id}`} className="flex items-center space-x-2.5">
                   <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-800 font-bold flex items-center justify-center text-xs border border-teal-100">
                     {emp.name.charAt(0).toUpperCase()}
                   </div>
@@ -437,7 +346,7 @@ const AdminEmployees = () => {
                     <p className="font-bold text-slate-900 text-xs">{emp.name}</p>
                     <p className="text-[10px] text-slate-400 font-mono">{emp.employeeId}</p>
                   </div>
-                </div>
+                </Link>
                 <div className="flex items-center gap-1.5">
                   <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
                     emp.workMode === 'HYBRID' ? 'bg-purple-50 text-purple-700 border-purple-200' :
@@ -458,45 +367,18 @@ const AdminEmployees = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-slate-50 p-2 rounded-xl">
-                  <span className="text-[10px] text-slate-400 block">Manager</span>
-                  <span className="font-semibold text-slate-800 text-[11px] truncate block">
-                    {emp.reportingManager ? emp.reportingManager.name : 'Unassigned'}
-                  </span>
-                </div>
-                <div className="bg-slate-50 p-2 rounded-xl">
-                  <span className="text-[10px] text-slate-400 block">Monthly Gross</span>
-                  <span className="font-mono font-bold text-slate-800 text-[11px] block">
-                    {emp.grossSalary ? `₹${emp.grossSalary.toLocaleString('en-IN')}` : 'Not set'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-100">
-                <button
-                  onClick={() => openEditModal(emp)}
-                  className="flex-1 py-1.5 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-[11px] rounded-xl border border-slate-200 flex items-center justify-center gap-1"
-                >
-                  <UserCog className="w-3 h-3 text-teal-600" /> Edit
-                </button>
-                <button
-                  onClick={() => openManagerModal(emp)}
-                  className="flex-1 py-1.5 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-[11px] rounded-xl border border-slate-200 flex items-center justify-center gap-1"
-                >
-                  <UserCheck className="w-3 h-3 text-teal-600" /> Mgr
-                </button>
-                <button
-                  onClick={() => openSalaryModal(emp)}
-                  className="flex-1 py-1.5 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-[11px] rounded-xl border border-slate-200 flex items-center justify-center gap-1"
-                >
-                  <Edit className="w-3 h-3" /> Pay
-                </button>
+              <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => viewAttendanceHistory(emp)}
-                  className="flex-1 py-1.5 px-2 bg-teal-50 hover:bg-teal-100 text-teal-700 font-bold text-[11px] rounded-xl border border-teal-200 flex items-center justify-center gap-1"
+                  className="flex-1 py-2 px-2 bg-teal-50 hover:bg-teal-100 text-teal-700 font-bold text-xs rounded-xl border border-teal-200 flex items-center justify-center gap-1"
                 >
-                  <Calendar className="w-3 h-3" /> Logs
+                  <Calendar className="w-3.5 h-3.5" /> Logs
+                </button>
+                <button
+                  onClick={() => openEditModal(emp)}
+                  className="flex-1 py-2 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 flex items-center justify-center gap-1"
+                >
+                  <UserCog className="w-3.5 h-3.5 text-teal-600" /> Edit
                 </button>
               </div>
             </div>
@@ -855,64 +737,137 @@ const AdminEmployees = () => {
                 </div>
               </div>
 
-              {/* Section 2: Account Details */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
-                  <input name="name" required value={editModal.form.name} onChange={handleEditChange} className="form-input text-xs" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
-                  <input name="email" required type="email" value={editModal.form.email} onChange={handleEditChange} className="form-input text-xs" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Employee ID</label>
-                  <input name="employeeId" required value={editModal.form.employeeId} onChange={handleEditChange} className="form-input font-mono text-xs" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Reset Password</label>
-                  <div className="relative">
-                    <input
-                      name="password"
-                      placeholder="Leave blank to keep current"
-                      type={editModal.showPassword ? 'text' : 'password'}
-                      value={editModal.form.password}
+              {/* Section 2: Account & Organization Details */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Account & Organization
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+                    <input name="name" required value={editModal.form.name} onChange={handleEditChange} className="form-input text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                    <input name="email" required type="email" value={editModal.form.email} onChange={handleEditChange} className="form-input text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Employee ID</label>
+                    <input name="employeeId" required value={editModal.form.employeeId} onChange={handleEditChange} className="form-input font-mono text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Reset Password</label>
+                    <div className="relative">
+                      <input
+                        name="password"
+                        placeholder="Leave blank to keep current"
+                        type={editModal.showPassword ? 'text' : 'password'}
+                        value={editModal.form.password}
+                        onChange={handleEditChange}
+                        className="form-input pr-10 text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditModal({ ...editModal, showPassword: !editModal.showPassword })}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {editModal.showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status</label>
+                    <select name="status" value={editModal.form.status} onChange={handleEditChange} className="form-input text-xs">
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Reporting Manager</label>
+                    <select
+                      name="reportingManagerId"
+                      value={editModal.form.reportingManagerId}
                       onChange={handleEditChange}
-                      className="form-input pr-10 text-xs"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setEditModal({ ...editModal, showPassword: !editModal.showPassword })}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="form-input text-xs"
                     >
-                      {editModal.showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
+                      <option value="">None (Independent / Admin)</option>
+                      {managers
+                        .filter((m) => m._id !== editModal.employee?._id)
+                        .map((mgr) => (
+                          <option key={mgr._id} value={mgr._id}>
+                            {mgr.name} ({mgr.employeeId}) {mgr.role === 'ADMIN' ? '— Admin' : ''}
+                          </option>
+                        ))}
+                    </select>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status</label>
-                  <select name="status" value={editModal.form.status} onChange={handleEditChange} className="form-input text-xs">
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                  </select>
+              </div>
+
+              {/* Section 3: Compensation & Statutory */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Compensation & Salary Setup
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Gross Salary (₹/Mo)</label>
+                    <input
+                      name="grossSalary"
+                      type="number"
+                      min="0"
+                      required
+                      placeholder="50000"
+                      value={editModal.form.grossSalary}
+                      onChange={handleEditChange}
+                      className="form-input font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Basic Salary (₹/Mo)</label>
+                    <input
+                      name="basicSalary"
+                      type="number"
+                      min="0"
+                      placeholder="25000"
+                      value={editModal.form.basicSalary}
+                      onChange={handleEditChange}
+                      className="form-input font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Other Deductions (₹)</label>
+                    <input
+                      name="otherDeductions"
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={editModal.form.otherDeductions}
+                      onChange={handleEditChange}
+                      className="form-input font-mono text-xs"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Reporting Manager</label>
-                  <select
-                    name="reportingManagerId"
-                    value={editModal.form.reportingManagerId}
-                    onChange={handleEditChange}
-                    className="form-input text-xs"
-                  >
-                    <option value="">None (Independent / Admin)</option>
-                    {managers
-                      .filter((m) => m._id !== editModal.employee?._id)
-                      .map((mgr) => (
-                        <option key={mgr._id} value={mgr._id}>
-                          {mgr.name} ({mgr.employeeId}) {mgr.role === 'ADMIN' ? '— Admin' : ''}
-                        </option>
-                      ))}
-                  </select>
+                <div className="flex gap-6 pt-3">
+                  <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="pfApplicable"
+                      checked={editModal.form.pfApplicable}
+                      onChange={handleEditChange}
+                      className="rounded text-teal-600 focus:ring-teal-500"
+                    />
+                    <span>PF Applicable (12%)</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="esiApplicable"
+                      checked={editModal.form.esiApplicable}
+                      onChange={handleEditChange}
+                      className="rounded text-teal-600 focus:ring-teal-500"
+                    />
+                    <span>ESI Applicable (0.75%)</span>
+                  </label>
                 </div>
               </div>
 
@@ -929,120 +884,7 @@ const AdminEmployees = () => {
                   type="submit"
                   className="btn-primary px-6 py-2.5 text-xs font-bold shadow-glow-teal"
                 >
-                  Save Profile Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Edit Salary Modal */}
-      {salaryModal.isOpen && createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md overflow-hidden border border-slate-100 animate-slide-up">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center">
-                  <IndianRupee className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">Configure Salary</h3>
-                  <p className="text-[11px] text-slate-400">Settings for {salaryModal.employee?.name}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setSalaryModal({ isOpen: false, employee: null, data: initialSalaryData })} 
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateSalary} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Gross Salary</label>
-                  <input name="grossSalary" required type="number" min="0" value={salaryModal.data.grossSalary} onChange={handleSalaryChange} className="form-input font-mono text-xs" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Basic Salary</label>
-                  <input name="basicSalary" required type="number" min="0" value={salaryModal.data.basicSalary} onChange={handleSalaryChange} className="form-input font-mono text-xs" />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Other Deductions</label>
-                  <input name="otherDeductions" type="number" min="0" value={salaryModal.data.otherDeductions} onChange={handleSalaryChange} className="form-input font-mono text-xs" />
-                </div>
-              </div>
-              
-              <div className="flex gap-4 pt-1">
-                <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                  <input type="checkbox" name="pfApplicable" checked={salaryModal.data.pfApplicable} onChange={handleSalaryChange} className="rounded text-teal-600 focus:ring-teal-500" />
-                  <span>PF Applicable</span>
-                </label>
-                <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                  <input type="checkbox" name="esiApplicable" checked={salaryModal.data.esiApplicable} onChange={handleSalaryChange} className="rounded text-teal-600 focus:ring-teal-500" />
-                  <span>ESI Applicable</span>
-                </label>
-              </div>
-
-              <div className="flex gap-3 pt-3 border-t border-slate-100">
-                <button type="button" onClick={() => setSalaryModal({ isOpen: false, employee: null, data: initialSalaryData })} className="btn-secondary flex-1 py-2.5 text-xs font-semibold">
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary flex-1 py-2.5 text-xs font-bold shadow-glow-teal">
-                  Save Salary
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Edit Manager Modal */}
-      {managerModal.isOpen && createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md overflow-hidden border border-slate-100 animate-slide-up">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center">
-                  <UserCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">Assign Reporting Line</h3>
-                  <p className="text-[11px] text-slate-400">Supervisor for {managerModal.employee?.name}</p>
-                </div>
-              </div>
-              <button onClick={() => setManagerModal({ isOpen: false, employee: null, reportingManagerId: '' })} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleUpdateManager} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Direct Supervisor</label>
-                <select
-                  value={managerModal.reportingManagerId}
-                  onChange={(e) => setManagerModal({ ...managerModal, reportingManagerId: e.target.value })}
-                  className="form-input text-xs"
-                >
-                  <option value="">None (Independent / Reports to Admin)</option>
-                  {managers
-                    .filter((m) => m._id !== managerModal.employee?._id)
-                    .map((mgr) => (
-                      <option key={mgr._id} value={mgr._id}>
-                        {mgr.name} ({mgr.employeeId}) {mgr.role === 'ADMIN' ? '— Admin' : ''}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="flex gap-3 pt-3 border-t border-slate-100">
-                <button type="button" onClick={() => setManagerModal({ isOpen: false, employee: null, reportingManagerId: '' })} className="btn-secondary flex-1 py-2.5 text-xs font-semibold">
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary flex-1 py-2.5 text-xs font-bold shadow-glow-teal">
-                  Confirm Supervisor
+                  Save All Changes
                 </button>
               </div>
             </form>

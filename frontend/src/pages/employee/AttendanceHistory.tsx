@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getMonthlyAttendance } from '../../services/attendanceService';
+import api from '../../services/api';
 import { formatTime, formatDuration } from '../../utils/timeUtils';
 import { format } from 'date-fns';
-import { Calendar, UserCheck, UserX, AlertTriangle, Clock, ChevronDown } from 'lucide-react';
+import { Calendar, UserCheck, UserX, AlertTriangle, Clock, ChevronDown, CalendarDays, Palmtree, Sparkles } from 'lucide-react';
 import LiveTimer from '../../components/attendance/LiveTimer';
 
 const LATE_THRESHOLD_HOUR = 9;
@@ -24,6 +25,14 @@ interface ParsedRecord {
   lunchStart: string | null;
   lunchEnd: string | null;
   displayStatus: 'Present' | 'Early Exit' | 'Late' | 'Half Day' | 'Working' | 'Leave';
+}
+
+interface Holiday {
+  _id?: string;
+  name: string;
+  date: string;
+  type?: string;
+  description?: string;
 }
 
 const getLunchTimes = (events: any[]) => {
@@ -93,21 +102,33 @@ const MONTHS = [
 const AttendanceHistory = () => {
   const { user } = useAuth();
   const [records, setRecords] = useState<ParsedRecord[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [leaveDaysMonth, setLeaveDaysMonth] = useState(0);
+  const [leaveDaysYear, setLeaveDaysYear] = useState(0);
+  const [activeTab, setActiveTab] = useState<'LOGS' | 'HOLIDAYS'>('LOGS');
   const [loading, setLoading] = useState(true);
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
-  const fetchHistory = async () => {
+  const fetchHistoryAndHolidays = async () => {
     try {
       setLoading(true);
-      const data = await getMonthlyAttendance(month, year);
-      const parsed: ParsedRecord[] = data.map((rec: any) => {
+      const [attData, holidayRes, leaveRes] = await Promise.all([
+        getMonthlyAttendance(month, year),
+        api.get('/attendance/holidays').catch(() => ({ data: [] })),
+        api.get('/attendance/leave-summary').catch(() => ({ data: { totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 } })),
+      ]);
+
+      const parsed: ParsedRecord[] = attData.map((rec: any) => {
         const { lunchStart, lunchEnd } = getLunchTimes(rec.events || []);
         const displayStatus = getDisplayStatus(rec);
         return { ...rec, lunchStart, lunchEnd, displayStatus };
       });
       setRecords(parsed);
+      setHolidays(holidayRes.data || []);
+      setLeaveDaysMonth(leaveRes.data?.totalLeaveDaysMonth || 0);
+      setLeaveDaysYear(leaveRes.data?.totalLeaveDaysYear || 0);
     } catch (error) {
       console.error('Failed to fetch history', error);
     } finally {
@@ -118,7 +139,7 @@ const AttendanceHistory = () => {
   const [nowTick, setNowTick] = useState(new Date());
 
   useEffect(() => {
-    fetchHistory();
+    fetchHistoryAndHolidays();
     const timer = setInterval(() => setNowTick(new Date()), 60000);
     return () => clearInterval(timer);
   }, [month, year]);
@@ -157,46 +178,140 @@ const AttendanceHistory = () => {
             <Calendar className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Monthly Log Archive</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Historical work logs and timestamp verification</p>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Work Logs & Company Holidays</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Historical work logs, leave records, and official company holidays</p>
           </div>
         </div>
 
-        {/* Month / Year Selectors */}
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <select
-              value={month}
-              onChange={(e) => setMonth(Number(e.target.value))}
-              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2.5 pl-3.5 pr-8 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
+        {/* Tab & Month Selectors */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/70">
+            <button
+              type="button"
+              onClick={() => setActiveTab('LOGS')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'LOGS' ? 'bg-white text-teal-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              {MONTHS.map((m, i) => (
-                <option key={i + 1} value={i + 1}>{m}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              Attendance Logs
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('HOLIDAYS')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'HOLIDAYS' ? 'bg-white text-teal-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Palmtree className="w-3.5 h-3.5 text-teal-600" />
+              <span>Office Holidays ({holidays.length})</span>
+            </button>
           </div>
 
-          <div className="relative">
-            <select
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2.5 pl-3.5 pr-8 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
-            >
-              <option value={now.getFullYear() - 1}>{now.getFullYear() - 1}</option>
-              <option value={now.getFullYear()}>{now.getFullYear()}</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          {activeTab === 'LOGS' && (
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <select
+                  value={month}
+                  onChange={(e) => setMonth(Number(e.target.value))}
+                  className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2 pl-3 pr-7 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
+                >
+                  {MONTHS.map((m, i) => (
+                    <option key={i + 1} value={i + 1}>{m}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              <div className="relative">
+                <select
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                  className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2 pl-3 pr-7 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
+                >
+                  <option value={now.getFullYear() - 1}>{now.getFullYear() - 1}</option>
+                  <option value={now.getFullYear()}>{now.getFullYear()}</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard icon={UserCheck} value={`${daysPresent} Days`} label="Days Present" colorClass="text-emerald-600" bgClass="bg-emerald-50" />
+        <StatCard icon={CalendarDays} value={`${leaveDaysMonth} Days`} label="Days on Leave" colorClass="text-rose-600" bgClass="bg-rose-50" />
         <StatCard icon={AlertTriangle} value={`${daysLate} Days`} label="Late Arrivals" colorClass="text-amber-600" bgClass="bg-amber-50" />
         <StatCard icon={Clock} value={formatDuration(dynamicTotalSeconds)} label="Total Logged Time" colorClass="text-teal-600" bgClass="bg-teal-50" />
       </div>
+
+      {activeTab === 'HOLIDAYS' ? (
+        /* Company / Office Holidays View */
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
+                <Palmtree className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Declared Office Holidays</h3>
+                <p className="text-[11px] text-slate-500">Official company calendar and recurring weekly offs</p>
+              </div>
+            </div>
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+              {holidays.length} Holidays Scheduled
+            </span>
+          </div>
+
+          {holidays.length === 0 ? (
+            <div className="py-12 text-center text-xs text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              No holidays declared yet by HR.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-xs">
+                <thead className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3">Holiday Name</th>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Day of Week</th>
+                    <th className="px-4 py-3">Category</th>
+                    <th className="px-4 py-3">Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {holidays.map((h) => {
+                    const d = new Date(h.date + 'T00:00:00');
+                    const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+                    const dateFormatted = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    return (
+                      <tr key={h._id || h.date} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3.5 font-bold text-slate-900">{h.name}</td>
+                        <td className="px-4 py-3.5 font-mono text-slate-700">{dateFormatted}</td>
+                        <td className="px-4 py-3.5 font-medium text-slate-600">{dayName}</td>
+                        <td className="px-4 py-3.5">
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                            h.type === 'NATIONAL' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            h.type === 'COMPANY' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            h.type === 'OPTIONAL' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          }`}>
+                            {h.type || 'FESTIVAL'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-500">{h.description || '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Work Attendance Logs View */
+        <>
 
       {/* Desktop Table */}
       <div className="hidden sm:block bg-white rounded-3xl border border-slate-200/80 shadow-card overflow-hidden">
@@ -304,6 +419,8 @@ const AttendanceHistory = () => {
           ))
         )}
       </div>
+      </>
+      )}
     </div>
   );
 };

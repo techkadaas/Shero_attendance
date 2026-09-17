@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { formatTime, formatDuration } from '../../utils/timeUtils';
 import { format } from 'date-fns';
-import { Calendar, UserCheck, AlertTriangle, Clock, ArrowLeft, ChevronDown } from 'lucide-react';
+import { Calendar, UserCheck, AlertTriangle, Clock, ArrowLeft, ChevronDown, Search, Users, User, X } from 'lucide-react';
 import LiveTimer from '../../components/attendance/LiveTimer';
 import toast from 'react-hot-toast';
 
@@ -95,11 +95,41 @@ const AdminEmployeeAttendance = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [records, setRecords] = useState<ParsedRecord[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [employeeName, setEmployeeName] = useState<string>('');
+
+  // Switcher state
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [searchEmployeeQuery, setSearchEmployeeQuery] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setSwitcherOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch all employees for switcher
+  useEffect(() => {
+    const fetchEmployeesList = async () => {
+      try {
+        const res = await api.get('/admin/employees');
+        setEmployees(res.data || []);
+      } catch (err) {
+        // silent
+      }
+    };
+    fetchEmployeesList();
+  }, []);
 
   const fetchHistory = async () => {
     try {
@@ -151,6 +181,21 @@ const AdminEmployeeAttendance = () => {
     }
   }
 
+  const currentEmp = employees.find(e => e.employeeId === id || e._id === id);
+  const currentDisplayName = currentEmp?.name || employeeName || `Employee ${id}`;
+
+  const filteredEmployeesList = employees.filter(e => 
+    e.name.toLowerCase().includes(searchEmployeeQuery.toLowerCase()) ||
+    e.employeeId.toLowerCase().includes(searchEmployeeQuery.toLowerCase()) ||
+    e.email.toLowerCase().includes(searchEmployeeQuery.toLowerCase())
+  );
+
+  const handleSelectEmployee = (emp: any) => {
+    setSwitcherOpen(false);
+    setSearchEmployeeQuery('');
+    navigate(`/admin/employees/${emp.employeeId}/attendance`);
+  };
+
   const StatCard = ({ icon: Icon, value, label, colorClass, bgClass }: any) => (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-card hover:shadow-card-hover transition-all">
       <div className="flex items-center space-x-3 mb-2">
@@ -176,13 +221,90 @@ const AdminEmployeeAttendance = () => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Staff Attendance History</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Logs for employee ID: <span className="font-mono font-bold text-teal-700">{id}</span></p>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <span>{currentDisplayName}</span>
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Attendance Logs • ID: <span className="font-mono font-bold text-teal-700">{id}</span>
+            </p>
           </div>
         </div>
 
-        {/* Month / Year Selectors */}
-        <div className="flex items-center gap-2">
+        {/* Controls: Employee Switcher & Month Selectors */}
+        <div className="flex flex-wrap items-center gap-2">
+          
+          {/* Switch Employee Dropdown & Search Bar */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setSwitcherOpen(!switcherOpen)}
+              className="flex items-center gap-2 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200/80 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-2xs"
+            >
+              <Users className="w-3.5 h-3.5 text-teal-600" />
+              <span>Switch Employee</span>
+              <ChevronDown className="w-3.5 h-3.5 text-teal-600" />
+            </button>
+
+            {switcherOpen && (
+              <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-slide-up space-y-2">
+                {/* Search Bar inside dropdown */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Search name or ID..."
+                    value={searchEmployeeQuery}
+                    onChange={(e) => setSearchEmployeeQuery(e.target.value)}
+                    className="w-full pl-8 pr-7 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-medium"
+                  />
+                  {searchEmployeeQuery && (
+                    <button
+                      onClick={() => setSearchEmployeeQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Employee List */}
+                <div className="max-h-56 overflow-y-auto space-y-1 divide-y divide-slate-50">
+                  {filteredEmployeesList.length === 0 ? (
+                    <p className="text-center py-4 text-xs text-slate-400">No employees found</p>
+                  ) : (
+                    filteredEmployeesList.map((emp) => {
+                      const isSelected = emp.employeeId === id || emp._id === id;
+                      return (
+                        <button
+                          key={emp._id}
+                          type="button"
+                          onClick={() => handleSelectEmployee(emp)}
+                          className={`w-full text-left p-2.5 rounded-xl text-xs flex items-center justify-between transition-colors ${
+                            isSelected ? 'bg-teal-50 text-teal-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <div>
+                            <p className="font-bold text-slate-900">{emp.name}</p>
+                            <p className="text-[10px] font-mono text-slate-500">{emp.employeeId}</p>
+                          </div>
+                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full border ${
+                            emp.workMode === 'HYBRID' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            emp.workMode === 'WFH' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                            'bg-teal-50 text-teal-700 border-teal-200'
+                          }`}>
+                            {emp.workMode || 'WFO'}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Month / Year Selectors */}
           <div className="relative">
             <select
               value={month}
