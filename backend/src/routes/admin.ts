@@ -447,6 +447,7 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       employeeId,
       status = 'ACTIVE',
       workMode = 'WFO',
+      isSsc = false,
       basicSalary,
       grossSalary,
       pfApplicable,
@@ -467,7 +468,7 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       return res.status(409).json({ error: 'User with this Employee ID already exists' });
     }
     const passwordHash = await bcrypt.hash(password, 10);
-    const validWorkMode = ['WFO', 'WFH', 'HYBRID', 'SSC'].includes(workMode) ? workMode : 'WFO';
+    const validWorkMode = ['WFO', 'WFH', 'HYBRID'].includes(workMode) ? workMode : 'WFO';
     const result = await users().insertOne({
       name,
       email,
@@ -476,6 +477,7 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       employeeId,
       status,
       workMode: validWorkMode,
+      isSsc: Boolean(isSsc),
       reportingManagerId: reportingManagerId ? reportingManagerId.toString() : null,
       basicSalary: basicSalary ? Number(basicSalary) : 0,
       grossSalary: grossSalary ? Number(grossSalary) : 0,
@@ -501,6 +503,7 @@ router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
       employeeId,
       status,
       workMode,
+      isSsc,
       reportingManagerId,
       basicSalary,
       grossSalary,
@@ -546,7 +549,11 @@ router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
     }
 
     if (workMode !== undefined) {
-      updateFields.workMode = ['WFO', 'WFH', 'HYBRID', 'SSC'].includes(workMode) ? workMode : 'WFO';
+      updateFields.workMode = ['WFO', 'WFH', 'HYBRID'].includes(workMode) ? workMode : 'WFO';
+    }
+
+    if (isSsc !== undefined) {
+      updateFields.isSsc = Boolean(isSsc);
     }
 
     if (reportingManagerId !== undefined) {

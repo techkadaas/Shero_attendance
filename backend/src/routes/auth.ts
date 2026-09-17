@@ -38,6 +38,7 @@ router.post('/login', async (req: Request, res: Response) => {
         role: user.role,
         employeeId: user.employeeId,
         workMode,
+        isSsc: Boolean(user.isSsc),
       },
     });
   } catch (error) {
@@ -85,6 +86,7 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => 
       employeeId: user.employeeId,
       status: user.status,
       workMode: user.workMode || 'WFO',
+      isSsc: Boolean(user.isSsc),
       reportingManager,
     });
   } catch (error) {

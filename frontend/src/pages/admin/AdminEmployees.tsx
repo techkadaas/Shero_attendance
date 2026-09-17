@@ -21,6 +21,7 @@ const AdminEmployees = () => {
     employeeId: '',
     status: 'ACTIVE',
     workMode: 'WFO',
+    isSsc: false,
     reportingManagerId: '',
     basicSalary: '',
     grossSalary: '',
@@ -133,6 +134,7 @@ const AdminEmployees = () => {
         employeeId: emp.employeeId || '',
         status: emp.status || 'ACTIVE',
         workMode: emp.workMode || 'WFO',
+        isSsc: Boolean(emp.isSsc),
         reportingManagerId: emp.reportingManager?.id || emp.reportingManagerId || '',
         basicSalary: emp.basicSalary !== undefined ? String(emp.basicSalary) : '',
         grossSalary: emp.grossSalary !== undefined ? String(emp.grossSalary) : '',
@@ -166,7 +168,7 @@ const AdminEmployees = () => {
     if (statusFilter === 'WFO') return matchesSearch && (emp.workMode === 'WFO' || !emp.workMode);
     if (statusFilter === 'WFH') return matchesSearch && emp.workMode === 'WFH';
     if (statusFilter === 'HYBRID') return matchesSearch && emp.workMode === 'HYBRID';
-    if (statusFilter === 'SSC') return matchesSearch && emp.workMode === 'SSC';
+    if (statusFilter === 'SSC') return matchesSearch && Boolean(emp.isSsc);
     return matchesSearch && emp.status === statusFilter;
   });
 
@@ -275,27 +277,29 @@ const AdminEmployees = () => {
                       </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {emp.workMode === 'SSC' ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300">
-                          <span className="mr-1 text-xs">⚡</span>
-                          SSC (Holiday Shift)
-                        </span>
-                      ) : emp.workMode === 'HYBRID' ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                          <span className="mr-1 text-xs">🏢+🏠</span>
-                          Hybrid (Flex)
-                        </span>
-                      ) : emp.workMode === 'WFH' ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                          <Home className="w-3 h-3 mr-1 text-indigo-500" />
-                          WFH (Remote)
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200">
-                          <Building2 className="w-3 h-3 mr-1 text-teal-600" />
-                          WFO (Office)
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {emp.workMode === 'HYBRID' ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                            <span className="mr-1 text-xs">🏢+🏠</span>
+                            Hybrid (Flex)
+                          </span>
+                        ) : emp.workMode === 'WFH' ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            <Home className="w-3 h-3 mr-1 text-indigo-500" />
+                            WFH (Remote)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                            <Building2 className="w-3 h-3 mr-1 text-teal-600" />
+                            WFO (Office)
+                          </span>
+                        )}
+                        {emp.isSsc && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-300">
+                            ⚡ SSC
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2.5 py-0.5 inline-flex text-[11px] font-bold rounded-full border ${
@@ -357,13 +361,17 @@ const AdminEmployees = () => {
                 </Link>
                 <div className="flex items-center gap-1.5">
                   <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
-                    emp.workMode === 'SSC' ? 'bg-amber-50 text-amber-800 border-amber-300' :
                     emp.workMode === 'HYBRID' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                     emp.workMode === 'WFH' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 
                     'bg-teal-50 text-teal-700 border-teal-200'
                   }`}>
-                    {emp.workMode === 'SSC' ? '⚡ SSC' : emp.workMode === 'HYBRID' ? '🏢+🏠 Hybrid' : emp.workMode === 'WFH' ? '🏠 WFH' : '🏢 WFO'}
+                    {emp.workMode === 'HYBRID' ? '🏢+🏠 Hybrid' : emp.workMode === 'WFH' ? '🏠 WFH' : '🏢 WFO'}
                   </span>
+                  {emp.isSsc && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-300 rounded-full">
+                      ⚡ SSC
+                    </span>
+                  )}
                   <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
                     emp.status === 'ACTIVE' ? 'bg-slate-100 text-slate-700 border-slate-200' : 
                     emp.status === 'WORKING' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
@@ -441,7 +449,7 @@ const AdminEmployees = () => {
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                       1. Select Work Mode Policy
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="grid grid-cols-3 gap-2.5">
                       <button
                         type="button"
                         onClick={() => setForm({ ...form, workMode: 'WFO' })}
@@ -504,27 +512,26 @@ const AdminEmployees = () => {
                           <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Works office & home.</p>
                         </div>
                       </button>
+                    </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, workMode: 'SSC' })}
-                        className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
-                          form.workMode === 'SSC'
-                            ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
-                            : 'bg-white border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between w-full mb-1.5">
-                          <div className={`p-1.5 rounded-lg ${form.workMode === 'SSC' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                            <span className="text-xs font-bold">⚡</span>
-                          </div>
-                          {form.workMode === 'SSC' && <span className="w-2 h-2 rounded-full bg-amber-600"></span>}
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-amber-900">SSC Shift</p>
-                          <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Works holidays, weekday off.</p>
-                        </div>
-                      </button>
+                    {/* SSC Option Checkbox Card */}
+                    <div className="mt-3 p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/90 flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="isSscCheckbox"
+                        name="isSsc"
+                        checked={form.isSsc}
+                        onChange={handleChange}
+                        className="mt-1 h-4 w-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
+                      />
+                      <label htmlFor="isSscCheckbox" className="cursor-pointer">
+                        <p className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                          <span>⚡</span> SSC Employee Policy (Works on Holidays & Weekends)
+                        </p>
+                        <p className="text-[11px] text-amber-700/90 mt-0.5 leading-snug">
+                          Allows login & attendance on company holidays/Sundays and enables compensatory weekday week off requests (applies to WFO, WFH, and Hybrid employees).
+                        </p>
+                      </label>
                     </div>
                   </div>
 
@@ -701,7 +708,7 @@ const AdminEmployees = () => {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Work Mode Policy
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-3 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setEditModal({ ...editModal, form: { ...editModal.form, workMode: 'WFO' } })}
@@ -764,27 +771,26 @@ const AdminEmployees = () => {
                       <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Office & Home.</p>
                     </div>
                   </button>
+                </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setEditModal({ ...editModal, form: { ...editModal.form, workMode: 'SSC' } })}
-                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
-                      editModal.form.workMode === 'SSC'
-                        ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
-                        : 'bg-white border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full mb-1.5">
-                      <div className={`p-1.5 rounded-lg shrink-0 ${editModal.form.workMode === 'SSC' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                        <span className="text-xs font-bold">⚡</span>
-                      </div>
-                      {editModal.form.workMode === 'SSC' && <span className="w-2 h-2 rounded-full bg-amber-600"></span>}
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-amber-900">SSC Shift</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Works holidays & weekends.</p>
-                    </div>
-                  </button>
+                {/* SSC Option Checkbox Card */}
+                <div className="mt-3 p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/90 flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="editIsSscCheckbox"
+                    name="isSsc"
+                    checked={editModal.form.isSsc}
+                    onChange={handleEditChange}
+                    className="mt-1 h-4 w-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
+                  />
+                  <label htmlFor="editIsSscCheckbox" className="cursor-pointer">
+                    <p className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                      <span>⚡</span> SSC Employee Policy (Works on Holidays & Weekends)
+                    </p>
+                    <p className="text-[11px] text-amber-700/90 mt-0.5 leading-snug">
+                      Allows login & attendance on company holidays/Sundays and enables compensatory weekday week off requests (applies to WFO, WFH, and Hybrid employees).
+                    </p>
+                  </label>
                 </div>
               </div>
 

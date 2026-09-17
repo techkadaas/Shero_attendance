@@ -29,12 +29,20 @@ const PrivateRoute = ({ children, role }: { children: React.ReactElement, role?:
   return children;
 };
 
+const IndexRedirect = () => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return <Navigate to={user.role === 'ADMIN' ? '/admin' : '/employee'} replace />;
+};
+
 const App = () => {
   return (
     <AuthProvider>
       <Toaster position="top-right" />
       <Router>
         <Routes>
+          <Route path="/" element={<IndexRedirect />} />
           <Route path="/login" element={<Login />} />
           
           <Route path="/employee" element={
@@ -63,7 +71,7 @@ const App = () => {
             <Route path="settings" element={<AdminSettings />} />
           </Route>
           
-          <Route path="*" element={<Navigate to="/login" />} />
+          <Route path="*" element={<IndexRedirect />} />
         </Routes>
       </Router>
     </AuthProvider>

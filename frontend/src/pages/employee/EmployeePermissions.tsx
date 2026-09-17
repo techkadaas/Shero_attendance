@@ -49,7 +49,7 @@ const EmployeePermissions = () => {
     startTime: '09:00',
     endTime: '18:00',
     reason: '',
-    requestType: user?.workMode === 'SSC' ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
+    requestType: user?.isSsc ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -134,7 +134,7 @@ const EmployeePermissions = () => {
         startTime: '09:00',
         endTime: '18:00',
         reason: '',
-        requestType: user?.workMode === 'SSC' ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
+        requestType: user?.isSsc ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
       });
       fetchData();
     } catch (error: any) {

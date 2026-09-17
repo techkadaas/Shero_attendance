@@ -9,7 +9,8 @@ export interface User {
   employeeId?: string;
   hourlyRate?: number;
   status?: string;
-  workMode?: 'WFO' | 'WFH' | 'HYBRID' | 'SSC';
+  workMode?: 'WFO' | 'WFH' | 'HYBRID';
+  isSsc?: boolean;
   [key: string]: any;
 }
 
