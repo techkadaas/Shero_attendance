@@ -127,7 +127,12 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
           <p className="text-xs text-slate-500 mt-0.5">Live work timer and attendance state management</p>
         </div>
         <div className="flex items-center gap-2">
-          {workMode === 'WFH' ? (
+          {workMode === 'HYBRID' ? (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+              <span className="mr-1 text-xs">🏢+🏠</span>
+              Hybrid Flex
+            </span>
+          ) : workMode === 'WFH' ? (
             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
               <Home className="w-3 h-3 mr-1 text-indigo-500" />
               WFH Remote
@@ -159,6 +164,8 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
           <p className="text-xs text-slate-500 max-w-sm mx-auto mb-6">
             {workMode === 'WFO' 
               ? 'Click below to verify your GPS location at the office and begin tracking your active work hours.'
+              : workMode === 'HYBRID'
+              ? 'Click below to sign in from anywhere (office or home) and begin tracking your active work hours.'
               : 'Click below to record your official sign-in timestamp and begin tracking your active work hours.'}
           </p>
           <button

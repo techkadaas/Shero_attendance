@@ -241,7 +241,7 @@ const AdminEmployees = () => {
         </div>
 
         <div className="flex items-center space-x-1 overflow-x-auto w-full sm:w-auto">
-          {['ALL', 'WFO', 'WFH', 'ACTIVE', 'WORKING', 'STOPPED', 'INACTIVE'].map((st) => (
+          {['ALL', 'WFO', 'WFH', 'HYBRID', 'ACTIVE', 'WORKING', 'STOPPED', 'INACTIVE'].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -257,6 +257,8 @@ const AdminEmployees = () => {
                 ? `🏢 WFO Office`
                 : st === 'WFH'
                 ? `🏠 WFH Remote`
+                : st === 'HYBRID'
+                ? `🏢+🏠 Hybrid`
                 : st === 'STOPPED'
                 ? 'On Leave'
                 : st}
@@ -303,7 +305,12 @@ const AdminEmployees = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {emp.workMode === 'WFH' ? (
+                      {emp.workMode === 'HYBRID' ? (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                          <Building2 className="w-3 h-3 mr-1 text-purple-600" />
+                          Hybrid (Flex)
+                        </span>
+                      ) : emp.workMode === 'WFH' ? (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                           <Home className="w-3 h-3 mr-1 text-indigo-500" />
                           WFH (Remote)
@@ -402,9 +409,11 @@ const AdminEmployees = () => {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
-                    emp.workMode === 'WFH' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-teal-50 text-teal-700 border-teal-200'
+                    emp.workMode === 'HYBRID' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                    emp.workMode === 'WFH' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 
+                    'bg-teal-50 text-teal-700 border-teal-200'
                   }`}>
-                    {emp.workMode === 'WFH' ? '🏠 WFH' : '🏢 WFO'}
+                    {emp.workMode === 'HYBRID' ? '🏢+🏠 Hybrid' : emp.workMode === 'WFH' ? '🏠 WFH' : '🏢 WFO'}
                   </span>
                   <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
                     emp.status === 'ACTIVE' ? 'bg-slate-100 text-slate-700 border-slate-200' : 
@@ -495,26 +504,26 @@ const AdminEmployees = () => {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
                   Select Work Mode Policy
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, workMode: 'WFO' })}
-                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start space-x-3 ${
+                    className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
                       form.workMode === 'WFO'
                         ? 'bg-teal-50/80 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
                         : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    <div className={`p-2 rounded-xl shrink-0 ${form.workMode === 'WFO' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                      <Building2 className="w-4 h-4" />
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <div className={`p-2 rounded-xl ${form.workMode === 'WFO' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      {form.workMode === 'WFO' && <span className="w-2 h-2 rounded-full bg-teal-600"></span>}
                     </div>
                     <div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-900">Work from Office (WFO)</p>
-                        {form.workMode === 'WFO' && <span className="w-2 h-2 rounded-full bg-teal-600"></span>}
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                        Strict Office Geofencing. Login & punch in only allowed inside office radius.
+                      <p className="text-xs font-bold text-slate-900">🏢 Office (WFO)</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                        Strict Office GPS geofence required.
                       </p>
                     </div>
                   </button>
@@ -522,22 +531,45 @@ const AdminEmployees = () => {
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, workMode: 'WFH' })}
-                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start space-x-3 ${
+                    className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
                       form.workMode === 'WFH'
                         ? 'bg-indigo-50/80 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs'
                         : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    <div className={`p-2 rounded-xl shrink-0 ${form.workMode === 'WFH' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                      <Home className="w-4 h-4" />
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <div className={`p-2 rounded-xl ${form.workMode === 'WFH' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        <Home className="w-4 h-4" />
+                      </div>
+                      {form.workMode === 'WFH' && <span className="w-2 h-2 rounded-full bg-indigo-600"></span>}
                     </div>
                     <div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-900">Work from Home (WFH)</p>
-                        {form.workMode === 'WFH' && <span className="w-2 h-2 rounded-full bg-indigo-600"></span>}
+                      <p className="text-xs font-bold text-slate-900">🏠 Home (WFH)</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                        Full remote sign-in from any location.
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, workMode: 'HYBRID' })}
+                    className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+                      form.workMode === 'HYBRID'
+                        ? 'bg-purple-50/80 border-purple-600 ring-2 ring-purple-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <div className={`p-2 rounded-xl ${form.workMode === 'HYBRID' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        <Building2 className="w-4 h-4" />
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                        Remote Attendance. Can login and record attendance from any location.
+                      {form.workMode === 'HYBRID' && <span className="w-2 h-2 rounded-full bg-purple-600"></span>}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">🏢+🏠 Hybrid</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                        Office + Home. No location constraint.
                       </p>
                     </div>
                   </button>
@@ -682,26 +714,26 @@ const AdminEmployees = () => {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
                   Work Mode Policy <span className="text-teal-600 font-normal lowercase">(Click to switch mode)</span>
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setEditModal({ ...editModal, form: { ...editModal.form, workMode: 'WFO' } })}
-                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start space-x-3 ${
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
                       editModal.form.workMode === 'WFO'
-                        ? 'bg-teal-50/80 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
+                        ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
                         : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    <div className={`p-2 rounded-xl shrink-0 ${editModal.form.workMode === 'WFO' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                      <Building2 className="w-4 h-4" />
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <div className={`p-1.5 rounded-lg shrink-0 ${editModal.form.workMode === 'WFO' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      {editModal.form.workMode === 'WFO' && <span className="w-2 h-2 rounded-full bg-teal-600"></span>}
                     </div>
                     <div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-900">Work from Office (WFO)</p>
-                        {editModal.form.workMode === 'WFO' && <span className="w-2 h-2 rounded-full bg-teal-600"></span>}
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                        Geofencing Enforced. Login & attendance only allowed at office location.
+                      <p className="text-xs font-bold text-slate-900">Office (WFO)</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                        Geofence required. Login at office only.
                       </p>
                     </div>
                   </button>
@@ -709,22 +741,45 @@ const AdminEmployees = () => {
                   <button
                     type="button"
                     onClick={() => setEditModal({ ...editModal, form: { ...editModal.form, workMode: 'WFH' } })}
-                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start space-x-3 ${
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
                       editModal.form.workMode === 'WFH'
-                        ? 'bg-indigo-50/80 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs'
+                        ? 'bg-indigo-50/90 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs'
                         : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    <div className={`p-2 rounded-xl shrink-0 ${editModal.form.workMode === 'WFH' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                      <Home className="w-4 h-4" />
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <div className={`p-1.5 rounded-lg shrink-0 ${editModal.form.workMode === 'WFH' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        <Home className="w-4 h-4" />
+                      </div>
+                      {editModal.form.workMode === 'WFH' && <span className="w-2 h-2 rounded-full bg-indigo-600"></span>}
                     </div>
                     <div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-900">Work from Home (WFH)</p>
-                        {editModal.form.workMode === 'WFH' && <span className="w-2 h-2 rounded-full bg-indigo-600"></span>}
+                      <p className="text-xs font-bold text-slate-900">Remote (WFH)</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                        Remote sign-in anywhere without location check.
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditModal({ ...editModal, form: { ...editModal.form, workMode: 'HYBRID' } })}
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                      editModal.form.workMode === 'HYBRID'
+                        ? 'bg-purple-50/90 border-purple-600 ring-2 ring-purple-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <div className={`p-1.5 rounded-lg shrink-0 ${editModal.form.workMode === 'HYBRID' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                        <span className="text-xs font-bold">🏢+🏠</span>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                        Remote Attendance. Employee can log in and punch from anywhere.
+                      {editModal.form.workMode === 'HYBRID' && <span className="w-2 h-2 rounded-full bg-purple-600"></span>}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-purple-900">Hybrid (Flex)</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                        Works office & home. No office location barrier.
                       </p>
                     </div>
                   </button>

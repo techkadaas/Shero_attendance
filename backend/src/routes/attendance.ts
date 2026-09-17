@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { getTodayRange, calculateDurationSeconds, getISTTodayString, combineDateAndTimeToISTDate } from '../utils/time';
-import { attendances, attendanceEvents, workSessions, users, settings, permissions } from '../mongo';
+import { attendances, attendanceEvents, workSessions, users, settings, permissions, holidays } from '../mongo';
 import { calculateDistanceMeters } from '../utils/geo';
 
 // Ensure connection is established (mongo.ts connects on import)
@@ -305,4 +305,16 @@ router.get('/salary', authenticateToken, async (req: AuthRequest, res: Response)
   }
 });
 
+// --- Public/Employee Holidays List ---
+router.get('/holidays', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const holidayList = await holidays().find({}).sort({ date: 1 }).toArray();
+    res.json(holidayList);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch holidays' });
+  }
+});
+
 export default router;
+

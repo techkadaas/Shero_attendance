@@ -42,6 +42,7 @@ export const attendanceEvents = () => getCollection<any>('AttendanceEvent');
 export const workSessions = () => getCollection<any>('WorkSession');
 export const settings = () => getCollection<any>('Settings');
 export const permissions = () => getCollection<any>('Permission');
+export const holidays = () => getCollection<any>('Holiday');
 
 process.on('SIGINT', async () => {
   if (client) {

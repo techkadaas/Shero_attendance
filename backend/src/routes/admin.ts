@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
 import { getTodayRange, getISTMinutes } from '../utils/time';
-import { attendances, users, attendanceEvents, workSessions, settings, permissions } from '../mongo';
+import { attendances, users, attendanceEvents, workSessions, settings, permissions, holidays } from '../mongo';
 import bcrypt from 'bcryptjs';
 
 const router = Router();
@@ -81,8 +81,8 @@ router.put('/settings', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// --- Dashboard Summary ---
-router.get('/dashboard-summary', async (req: AuthRequest, res: Response) => {
+// --- Dashboard Summary Handler (Supports both /dashboard and /dashboard-summary) ---
+const handleDashboardSummary = async (req: AuthRequest, res: Response) => {
   try {
     const { date } = req.query as any;
     let start: Date, end: Date;
@@ -150,7 +150,11 @@ router.get('/dashboard-summary', async (req: AuthRequest, res: Response) => {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch dashboard summary' });
   }
-});
+};
+
+router.get('/dashboard', handleDashboardSummary);
+router.get('/dashboard-summary', handleDashboardSummary);
+
 
 // --- All attendance (for a given date) ---
 router.get('/attendance', async (req: AuthRequest, res: Response) => {
@@ -315,6 +319,7 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       return res.status(409).json({ error: 'User with this Employee ID already exists' });
     }
     const passwordHash = await bcrypt.hash(password, 10);
+    const validWorkMode = ['WFO', 'WFH', 'HYBRID'].includes(workMode) ? workMode : 'WFO';
     const result = await users().insertOne({
       name,
       email,
@@ -322,7 +327,7 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       role: 'EMPLOYEE',
       employeeId,
       status,
-      workMode: workMode === 'WFH' ? 'WFH' : 'WFO',
+      workMode: validWorkMode,
       reportingManagerId: reportingManagerId ? reportingManagerId.toString() : null,
       basicSalary: basicSalary ? Number(basicSalary) : 0,
       grossSalary: grossSalary ? Number(grossSalary) : 0,
@@ -393,7 +398,7 @@ router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
     }
 
     if (workMode !== undefined) {
-      updateFields.workMode = workMode === 'WFH' ? 'WFH' : 'WFO';
+      updateFields.workMode = ['WFO', 'WFH', 'HYBRID'].includes(workMode) ? workMode : 'WFO';
     }
 
     if (reportingManagerId !== undefined) {
@@ -573,4 +578,70 @@ router.get('/payroll', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// --- Quick update employee work mode (WFO | WFH | HYBRID) ---
+router.patch('/employees/:id/work-mode', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = new ObjectId(String(req.params.id));
+    const { workMode } = req.body;
+    if (!['WFO', 'WFH', 'HYBRID'].includes(workMode)) {
+      return res.status(400).json({ error: 'Invalid workMode. Must be WFO, WFH, or HYBRID.' });
+    }
+    const result = await users().updateOne({ _id: id }, { $set: { workMode } });
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    res.json({ message: `Work mode updated to ${workMode}` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update work mode' });
+  }
+});
+
+// --- Company Holidays CRUD ---
+router.get('/holidays', async (req: AuthRequest, res: Response) => {
+  try {
+    const holidayList = await holidays().find({}).sort({ date: 1 }).toArray();
+    res.json(holidayList);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch holidays' });
+  }
+});
+
+router.post('/holidays', async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, date, type, description } = req.body;
+    if (!name || !date) {
+      return res.status(400).json({ error: 'Holiday name and date are required' });
+    }
+    const newHoliday = {
+      name: String(name).trim(),
+      date: String(date).trim(), // YYYY-MM-DD
+      type: type || 'COMPANY', // 'NATIONAL' | 'FESTIVAL' | 'COMPANY' | 'OPTIONAL'
+      description: description ? String(description).trim() : '',
+      createdAt: new Date(),
+    };
+    const result = await holidays().insertOne(newHoliday);
+    res.status(201).json({ ...newHoliday, _id: result.insertedId });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to add holiday' });
+  }
+});
+
+router.delete('/holidays/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = new ObjectId(String(req.params.id));
+    const result = await holidays().deleteOne({ _id: id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Holiday not found' });
+    }
+    res.json({ message: 'Holiday deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete holiday' });
+  }
+});
+
 export default router;
+
