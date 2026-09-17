@@ -6,21 +6,21 @@ interface LiveTimerProps {
   initialWorkingSeconds: number;
   lastResumeTimestamp?: string;
   lastStopTimestamp?: string;
+  className?: string;
 }
 
 const LiveTimer: React.FC<LiveTimerProps> = ({ 
   status, 
   initialWorkingSeconds, 
   lastResumeTimestamp,
-  lastStopTimestamp 
+  lastStopTimestamp,
+  className = ''
 }) => {
   const [currentSeconds, setCurrentSeconds] = useState(initialWorkingSeconds);
 
   useEffect(() => {
-    // Determine the base seconds when the component mounts or props change
     let baseSeconds = initialWorkingSeconds;
     
-    // If working, we need to add the duration from the last resume/check-in to NOW
     if (status === 'WORKING' && lastResumeTimestamp) {
       const now = new Date();
       const resumeTime = new Date(lastResumeTimestamp);
@@ -43,7 +43,11 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
     };
   }, [status, initialWorkingSeconds, lastResumeTimestamp, lastStopTimestamp]);
 
-  return <span className="font-mono">{formatDuration(currentSeconds)}</span>;
+  return (
+    <span className={`font-mono tracking-tight ${className}`}>
+      {formatDuration(currentSeconds)}
+    </span>
+  );
 };
 
 export default LiveTimer;

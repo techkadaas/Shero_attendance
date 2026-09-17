@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { IndianRupee, Download, Eye } from 'lucide-react';
+import { IndianRupee, Download, Eye, Calculator, Users, CheckCircle2, ChevronDown } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -23,6 +24,7 @@ const AdminPayroll = () => {
       setPayroll(res.data);
     } catch (error) {
       console.error('Failed to fetch payroll', error);
+      toast.error('Failed to calculate payroll');
     } finally {
       setLoading(false);
     }
@@ -31,6 +33,9 @@ const AdminPayroll = () => {
   useEffect(() => {
     fetchPayroll();
   }, [month, year]);
+
+  const totalDisbursal = payroll.reduce((acc, curr) => acc + (curr.netSalary || 0), 0);
+  const totalGross = payroll.reduce((acc, curr) => acc + (curr.earnedGross || 0), 0);
 
   const downloadCSV = () => {
     if (!payroll.length) return;
@@ -69,87 +74,146 @@ const AdminPayroll = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center">
-            <IndianRupee className="w-6 h-6 mr-2 text-teal-600" /> Payroll Management
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">Calculate and review monthly salaries</p>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-card">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 bg-teal-50 rounded-2xl text-teal-700 border border-teal-100">
+            <Calculator className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Executive Payroll Engine</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Automated statutory computations, PF/ESI & bank payouts</p>
+          </div>
         </div>
 
-        <div className="flex gap-2">
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            className="flex-1 sm:flex-none border border-gray-200 rounded-xl shadow-sm bg-white text-sm py-2.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none"
-            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}
-          >
-            {MONTHS.map((m, i) => (
-              <option key={i + 1} value={i + 1}>{m}</option>
-            ))}
-          </select>
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="flex-1 sm:flex-none border border-gray-200 rounded-xl shadow-sm bg-white text-sm py-2.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none"
-            style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}
-          >
-            <option value={now.getFullYear() - 1}>{now.getFullYear() - 1}</option>
-            <option value={now.getFullYear()}>{now.getFullYear()}</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <select
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2.5 pl-3.5 pr-8 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
+            >
+              {MONTHS.map((m, i) => (
+                <option key={i + 1} value={i + 1}>{m}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          <div className="relative">
+            <select
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2.5 pl-3.5 pr-8 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
+            >
+              <option value={now.getFullYear() - 1}>{now.getFullYear() - 1}</option>
+              <option value={now.getFullYear()}>{now.getFullYear()}</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
           <button
             onClick={downloadCSV}
             disabled={loading || payroll.length === 0}
-            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-xl text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50"
-            title="Download Excel/CSV"
+            className="btn-primary shadow-glow-teal text-xs"
+            title="Export CSV Statement"
           >
-            <Download className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Download</span>
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            <span>Export CSV</span>
           </button>
         </div>
       </div>
 
-      <div className="hidden sm:block bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-card">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600">
+              <IndianRupee className="w-5 h-5" />
+            </div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Disbursal Pool</p>
+          </div>
+          <p className="text-2xl font-black text-slate-900 font-mono">
+            ₹{Math.round(totalDisbursal).toLocaleString('en-IN')}
+          </p>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-card">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
+              <Users className="w-5 h-5" />
+            </div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Headcount</p>
+          </div>
+          <p className="text-2xl font-black text-slate-900 font-mono">
+            {payroll.length} Employees
+          </p>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-card">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600">
+              <Calculator className="w-5 h-5" />
+            </div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Gross Labor Cost</p>
+          </div>
+          <p className="text-2xl font-black text-indigo-700 font-mono">
+            ₹{Math.round(totalGross).toLocaleString('en-IN')}
+          </p>
+        </div>
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden sm:block bg-white shadow-card rounded-3xl border border-slate-200/80 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/75">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Salary</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Eligible Days</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Salary</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Employee</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Monthly Base</th>
+                <th className="px-6 py-4 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">Eligible Days</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Net Payable</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Statement</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-sm">Calculating payroll...</td></tr>
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-xs">Computing payroll ledger...</td></tr>
               ) : payroll.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-sm">No payroll data available.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">No payroll data available for this month.</td></tr>
               ) : (
                 payroll.map((p) => (
-                  <tr key={p.employeeId} className="hover:bg-gray-50">
+                  <tr key={p.employeeId} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{p.name}</div>
-                      <div className="text-sm text-gray-500 font-mono">{p.employeeId}</div>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-800 font-bold flex items-center justify-center text-xs border border-teal-100">
+                          {p.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">{p.name}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">{p.employeeId}</p>
+                        </div>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {p.grossSalary ? `₹${p.grossSalary.toLocaleString()}` : 'Not set'}
+                    <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-medium text-slate-700">
+                      {p.grossSalary ? `₹${p.grossSalary.toLocaleString('en-IN')}` : 'Not set'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center text-gray-900">
-                      {p.eligibleDays} / {p.daysInMonth}
+                    <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-bold text-center text-slate-800">
+                      <span className="bg-slate-100 px-2.5 py-1 rounded-lg">
+                        {p.eligibleDays} / {p.daysInMonth}d
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-bold text-green-700 bg-green-50 px-3 py-1 rounded-lg">
-                        ₹{p.netSalary.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      <span className="text-xs font-black font-mono text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">
+                        ₹{Math.round(p.netSalary).toLocaleString('en-IN')}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <button 
                         onClick={() => navigate(`/admin/payroll/${p.employeeId}?month=${month}&year=${year}`)}
-                        className="inline-flex items-center text-sm text-teal-600 hover:text-teal-900 font-medium"
+                        className="inline-flex items-center text-xs font-bold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-2.5 py-1.5 rounded-xl border border-teal-200 transition-colors"
                       >
-                        <Eye className="w-4 h-4 mr-1" /> Details
+                        <Eye className="w-3.5 h-3.5 mr-1" /> View Itemized Slip
                       </button>
                     </td>
                   </tr>
@@ -160,40 +224,43 @@ const AdminPayroll = () => {
         </div>
       </div>
 
+      {/* Mobile Card List */}
       <div className="sm:hidden space-y-3">
         {loading ? (
-          <div className="bg-white rounded-xl p-6 text-center text-gray-500 text-sm border border-gray-200">Calculating payroll...</div>
+          <div className="bg-white rounded-3xl p-8 text-center text-slate-400 text-xs border border-slate-200 shadow-card">Computing payroll...</div>
         ) : payroll.length === 0 ? (
-          <div className="bg-white rounded-xl p-6 text-center text-gray-500 text-sm border border-gray-200">No payroll data available.</div>
+          <div className="bg-white rounded-3xl p-8 text-center text-slate-400 text-xs border border-slate-200 shadow-card">No payroll data available.</div>
         ) : (
           payroll.map((p) => (
-            <div key={p.employeeId} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
-              <div className="flex justify-between items-start">
+            <div key={p.employeeId} className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-card space-y-3">
+              <div className="flex justify-between items-start pb-2 border-b border-slate-100">
                 <div>
-                  <p className="font-semibold text-gray-900">{p.name}</p>
-                  <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded mt-1 inline-block">{p.employeeId}</span>
+                  <p className="font-bold text-slate-900 text-xs">{p.name}</p>
+                  <span className="text-[10px] font-mono text-slate-400">{p.employeeId}</span>
                 </div>
-                <div className="text-right flex flex-col items-end">
-                  <p className="text-xs text-gray-500 mb-0.5">Net Salary</p>
-                  <p className="text-sm font-bold text-green-700 mb-2">₹{p.netSalary.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                  <button 
-                    onClick={() => navigate(`/admin/payroll/${p.employeeId}?month=${month}&year=${year}`)}
-                    className="inline-flex items-center text-xs text-teal-600 hover:text-teal-900 font-medium bg-teal-50 px-2 py-1 rounded"
-                  >
-                    <Eye className="w-3 h-3 mr-1" /> Details
-                  </button>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Net Pay</span>
+                  <span className="text-xs font-black font-mono text-emerald-700">₹{Math.round(p.netSalary).toLocaleString('en-IN')}</span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
-                <div>
-                  <p className="text-xs text-gray-400">Gross Salary</p>
-                  <p className="text-sm font-medium text-gray-900">{p.grossSalary ? `₹${p.grossSalary.toLocaleString()}` : 'Not set'}</p>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-slate-50 p-2 rounded-xl">
+                  <span className="text-[10px] text-slate-400 block">Gross Salary</span>
+                  <span className="font-mono font-bold text-slate-800 text-[11px] block">{p.grossSalary ? `₹${p.grossSalary.toLocaleString('en-IN')}` : 'Not set'}</span>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400">Eligible Days</p>
-                  <p className="text-sm font-medium text-gray-900">{p.eligibleDays} / {p.daysInMonth}</p>
+                <div className="bg-slate-50 p-2 rounded-xl">
+                  <span className="text-[10px] text-slate-400 block">Worked</span>
+                  <span className="font-mono font-bold text-slate-800 text-[11px] block">{p.eligibleDays} / {p.daysInMonth} Days</span>
                 </div>
               </div>
+
+              <button 
+                onClick={() => navigate(`/admin/payroll/${p.employeeId}?month=${month}&year=${year}`)}
+                className="w-full py-2 bg-teal-50 hover:bg-teal-100 text-teal-700 font-bold text-xs rounded-xl border border-teal-200 flex items-center justify-center gap-1 transition-colors"
+              >
+                <Eye className="w-3.5 h-3.5" /> View Itemized Payslip
+              </button>
             </div>
           ))
         )}

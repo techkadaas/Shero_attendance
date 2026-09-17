@@ -1,75 +1,84 @@
 import React from 'react';
 import { formatTime } from '../../utils/timeUtils';
-import { CheckCircle2, PauseCircle, PlayCircle, StopCircle } from 'lucide-react';
+import { LogIn, Coffee, Play, LogOut, Activity } from 'lucide-react';
 
 interface AttendanceTimelineProps {
   events: any[];
 }
 
 const AttendanceTimeline: React.FC<AttendanceTimelineProps> = ({ events }) => {
-  const getEventIcon = (type: string) => {
+  const getEventMeta = (type: string) => {
     switch (type) {
       case 'CHECK_IN':
-        return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+        return {
+          icon: LogIn,
+          title: 'Checked In',
+          desc: 'Started work day',
+          color: 'text-teal-700',
+          bg: 'bg-teal-50 border-teal-200',
+        };
       case 'STOP':
-        return <PauseCircle className="w-5 h-5 text-yellow-500" />;
+        return {
+          icon: Coffee,
+          title: 'Leave / Break',
+          desc: 'Paused active session',
+          color: 'text-amber-700',
+          bg: 'bg-amber-50 border-amber-200',
+        };
       case 'RESUME':
-        return <PlayCircle className="w-5 h-5 text-green-500" />;
+        return {
+          icon: Play,
+          title: 'Resumed',
+          desc: 'Continued work timer',
+          color: 'text-emerald-700',
+          bg: 'bg-emerald-50 border-emerald-200',
+        };
       case 'CHECK_OUT':
-        return <StopCircle className="w-5 h-5 text-teal-500" />;
+        return {
+          icon: LogOut,
+          title: 'Checked Out',
+          desc: 'Shift completed',
+          color: 'text-slate-700',
+          bg: 'bg-slate-100 border-slate-300',
+        };
       default:
-        return <div className="w-5 h-5 rounded-full bg-gray-300" />;
+        return {
+          icon: Activity,
+          title: 'Event',
+          desc: 'Recorded event',
+          color: 'text-slate-600',
+          bg: 'bg-slate-50 border-slate-200',
+        };
     }
-  };
-
-  const getEventDescription = (type: string) => {
-    switch (type) {
-      case 'CHECK_IN': return 'Started working';
-      case 'STOP': return 'Went on leave';
-      case 'RESUME': return 'Work session resumed';
-      case 'CHECK_OUT': return 'Work completed';
-      default: return 'Event recorded';
-    }
-  };
-
-  const getEventLabel = (type: string) => {
-    if (type === 'STOP') return 'Leave';
-    return type.replace('_', ' ').toLowerCase();
   };
 
   return (
     <div className="flow-root">
-      <ul className="-mb-8">
-        {events.map((event, eventIdx) => (
-          <li key={event.id}>
-            <div className="relative pb-8">
-              {eventIdx !== events.length - 1 ? (
-                <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
-              ) : null}
-              <div className="relative flex space-x-3">
+      <div className="relative pl-6 space-y-6 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+        {events.map((event, idx) => {
+          const meta = getEventMeta(event.eventType);
+          const Icon = meta.icon;
+          return (
+            <div key={event._id || event.id || idx} className="relative group">
+              {/* Event Dot */}
+              <div className={`absolute -left-[30px] top-0.5 w-6 h-6 rounded-full border-2 bg-white flex items-center justify-center shadow-xs transition-transform group-hover:scale-110 ${meta.bg}`}>
+                <Icon className={`w-3 h-3 ${meta.color}`} />
+              </div>
+
+              {/* Event Content */}
+              <div className="flex items-start justify-between gap-2 p-3 bg-slate-50/70 hover:bg-slate-50 rounded-xl border border-slate-100 transition-colors">
                 <div>
-                  <span className="h-8 w-8 rounded-full bg-white flex items-center justify-center ring-8 ring-white">
-                    {getEventIcon(event.eventType)}
-                  </span>
+                  <p className="text-xs font-bold text-slate-800">{meta.title}</p>
+                  <p className="text-[11px] text-slate-500">{meta.desc}</p>
                 </div>
-                <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
-                  <div>
-                    <p className="text-sm text-gray-900 font-medium capitalize">
-                      {getEventLabel(event.eventType)}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {getEventDescription(event.eventType)}
-                    </p>
-                  </div>
-                  <div className="text-right text-sm whitespace-nowrap text-gray-500">
-                    <time dateTime={event.timestamp}>{formatTime(event.timestamp)}</time>
-                  </div>
-                </div>
+                <span className="font-mono text-xs font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200/60 shrink-0">
+                  {formatTime(event.timestamp)}
+                </span>
               </div>
             </div>
-          </li>
-        ))}
-      </ul>
+          );
+        })}
+      </div>
     </div>
   );
 };
