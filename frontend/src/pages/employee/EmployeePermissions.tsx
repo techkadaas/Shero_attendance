@@ -43,13 +43,13 @@ const EmployeePermissions = () => {
     startTime: string;
     endTime: string;
     reason: string;
-    requestType: 'PERMISSION' | 'WFH' | 'LEAVE';
+    requestType: 'PERMISSION' | 'WFH' | 'LEAVE' | 'WEEK_OFF';
   }>({
     date: todayStr,
     startTime: '09:00',
     endTime: '18:00',
     reason: '',
-    requestType: user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION',
+    requestType: user?.isSsc ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -93,7 +93,7 @@ const EmployeePermissions = () => {
     e.preventDefault();
     
     let submitPayload = { ...form };
-    if (form.requestType === 'LEAVE' || form.requestType === 'WFH') {
+    if (form.requestType === 'LEAVE' || form.requestType === 'WFH' || form.requestType === 'WEEK_OFF') {
       if (dayType === 'FULL_DAY') {
         submitPayload.startTime = '09:00';
         submitPayload.endTime = '18:00';
@@ -118,7 +118,9 @@ const EmployeePermissions = () => {
       setSubmitting(true);
       await submitPermission(submitPayload);
       toast.success(
-        form.requestType === 'WFH'
+        form.requestType === 'WEEK_OFF'
+          ? 'Compensatory Week Off request submitted to your reporting manager!'
+          : form.requestType === 'WFH'
           ? 'WFH request submitted to your reporting manager!'
           : form.requestType === 'LEAVE'
           ? 'Leave application submitted successfully!'
@@ -132,7 +134,7 @@ const EmployeePermissions = () => {
         startTime: '09:00',
         endTime: '18:00',
         reason: '',
-        requestType: user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION',
+        requestType: user?.isSsc ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
       });
       fetchData();
     } catch (error: any) {
@@ -214,6 +216,39 @@ const EmployeePermissions = () => {
 
   return (
     <div className="space-y-6">
+      {/* SSC Employee Policy Banner */}
+      {user?.isSsc && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-card">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 bg-amber-500 text-white rounded-2xl flex items-center justify-center font-bold text-lg shadow-xs shrink-0">
+              ⚡
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-extrabold text-amber-950">SSC Shift Employee Privilege Active</p>
+                <span className="px-2 py-0.5 bg-amber-200/80 text-amber-900 rounded-full text-[10px] font-black uppercase">
+                  Holiday / Sunday Work Enabled
+                </span>
+              </div>
+              <p className="text-xs text-amber-800/90 mt-0.5">
+                Since you work on official holidays & Sundays, you are entitled to compensatory weekday <strong>Week Off</strong>.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setForm({ ...form, requestType: 'WEEK_OFF' });
+              setDayType('FULL_DAY');
+              setShowModal(true);
+            }}
+            className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 shrink-0"
+          >
+            <span>🏖️</span> Request Week Off
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-card">
         <div className="flex items-center space-x-3">
@@ -221,9 +256,9 @@ const EmployeePermissions = () => {
             <Clock4 className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Permission Management</h1>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Permission & Leave Management</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Submit short absence permissions and manage supervisor sign-offs
+              Submit absence permissions, WFH, leaves, or compensatory week offs
             </p>
           </div>
         </div>
@@ -232,7 +267,7 @@ const EmployeePermissions = () => {
           onClick={() => setShowModal(true)}
           className="btn-primary w-full sm:w-auto shadow-glow-teal"
         >
-          <Plus className="w-4 h-4 mr-1.5" /> Request Permission
+          <Plus className="w-4 h-4 mr-1.5" /> Request Time Off
         </button>
       </div>
 
@@ -558,11 +593,12 @@ const EmployeePermissions = () => {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   1. Request Category
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
-                    { id: 'WFH', label: 'Work From Home', icon: '🏠', desc: 'Remote day request' },
-                    { id: 'LEAVE', label: 'Leave', icon: '🌴', desc: 'Full or Half Day off' },
-                    { id: 'PERMISSION', label: 'Permission', icon: '⏱️', desc: 'Short 1-2h errand' },
+                    { id: 'WEEK_OFF', label: 'Week Off', icon: '🏖️', desc: 'Compensatory weekday off', highlight: Boolean(user?.isSsc) },
+                    { id: 'WFH', label: 'Work From Home', icon: '🏠', desc: 'Remote day request', highlight: false },
+                    { id: 'LEAVE', label: 'Leave', icon: '🌴', desc: 'Full or Half Day off', highlight: false },
+                    { id: 'PERMISSION', label: 'Permission', icon: '⏱️', desc: 'Short 1-2h errand', highlight: false },
                   ].map((cat) => (
                     <button
                       type="button"
@@ -571,14 +607,25 @@ const EmployeePermissions = () => {
                         setForm({ ...form, requestType: cat.id as any });
                         setDayType('FULL_DAY');
                       }}
-                      className={`p-2.5 rounded-2xl border text-left transition-all ${
+                      className={`p-2.5 rounded-2xl border text-left transition-all relative ${
                         form.requestType === cat.id
-                          ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
+                          ? cat.id === 'WEEK_OFF'
+                            ? 'bg-amber-50/90 border-amber-600 ring-2 ring-amber-500/20 shadow-xs'
+                            : 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
                           : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
+                      {cat.highlight && (
+                        <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.2 bg-amber-500 text-white text-[9px] font-black rounded-full shadow-2xs">
+                          SSC
+                        </span>
+                      )}
                       <div className="text-base mb-1">{cat.icon}</div>
-                      <p className={`text-xs font-bold ${form.requestType === cat.id ? 'text-teal-900' : 'text-slate-800'}`}>
+                      <p className={`text-xs font-bold ${
+                        form.requestType === cat.id 
+                          ? cat.id === 'WEEK_OFF' ? 'text-amber-900' : 'text-teal-900' 
+                          : 'text-slate-800'
+                      }`}>
                         {cat.label}
                       </p>
                       <p className="text-[10px] text-slate-400 mt-0.5">{cat.desc}</p>
@@ -587,8 +634,8 @@ const EmployeePermissions = () => {
                 </div>
               </div>
 
-              {/* Leave or WFH: Duration Selector (Full Day vs Half Day) */}
-              {(form.requestType === 'LEAVE' || form.requestType === 'WFH') && (
+              {/* Leave, Week Off, or WFH: Duration Selector (Full Day vs Half Day) */}
+              {(form.requestType === 'LEAVE' || form.requestType === 'WFH' || form.requestType === 'WEEK_OFF') && (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     2. Duration Option
@@ -599,22 +646,22 @@ const EmployeePermissions = () => {
                       onClick={() => setDayType('FULL_DAY')}
                       className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
                         dayType === 'FULL_DAY'
-                          ? 'bg-teal-600 text-white shadow-xs border-teal-600'
+                          ? form.requestType === 'WEEK_OFF' ? 'bg-amber-600 text-white shadow-xs border-amber-600' : 'bg-teal-600 text-white shadow-xs border-teal-600'
                           : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
-                      {form.requestType === 'LEAVE' ? '🌴 Full Day Leave' : '🏠 Full Day WFH'}
+                      {form.requestType === 'WEEK_OFF' ? '🏖️ Full Day Week Off' : form.requestType === 'LEAVE' ? '🌴 Full Day Leave' : '🏠 Full Day WFH'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setDayType('HALF_DAY')}
                       className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
                         dayType === 'HALF_DAY'
-                          ? 'bg-teal-600 text-white shadow-xs border-teal-600'
+                          ? form.requestType === 'WEEK_OFF' ? 'bg-amber-600 text-white shadow-xs border-amber-600' : 'bg-teal-600 text-white shadow-xs border-teal-600'
                           : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
-                      {form.requestType === 'LEAVE' ? '🌓 Half Day Leave' : '🌓 Half Day WFH'}
+                      {form.requestType === 'WEEK_OFF' ? '🌓 Half Day Week Off' : form.requestType === 'LEAVE' ? '🌓 Half Day Leave' : '🌓 Half Day WFH'}
                     </button>
                   </div>
 
@@ -662,7 +709,7 @@ const EmployeePermissions = () => {
                 />
               </div>
 
-              {/* Time Picker ONLY for PERMISSION (Hidden for Full Day Leave/WFH) */}
+              {/* Time Picker ONLY for PERMISSION (Hidden for Full Day Leave/WFH/Week Off) */}
               {form.requestType === 'PERMISSION' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -691,7 +738,9 @@ const EmployeePermissions = () => {
               {/* Live Info Banner */}
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
                 <span className="text-slate-600 font-medium">
-                  {form.requestType === 'LEAVE'
+                  {form.requestType === 'WEEK_OFF'
+                    ? dayType === 'FULL_DAY' ? '🏖️ Full Day Week Off (Compensatory for Holiday/Sunday Work)' : `🌓 Half Day Week Off (${halfDaySlot === 'FIRST_HALF' ? 'Morning 9:00 - 1:30' : 'Afternoon 1:30 - 6:00'})`
+                    : form.requestType === 'LEAVE'
                     ? dayType === 'FULL_DAY' ? '🌴 Full Day Off (1 Working Day)' : `🌓 Half Day Off (${halfDaySlot === 'FIRST_HALF' ? 'Morning 9:00 - 1:30' : 'Afternoon 1:30 - 6:00'})`
                     : form.requestType === 'WFH'
                     ? dayType === 'FULL_DAY' ? '🏠 Full Day Remote (09:00 AM – 06:00 PM)' : `🏠 Half Day Remote (${halfDaySlot === 'FIRST_HALF' ? 'Morning' : 'Afternoon'})`
@@ -710,7 +759,9 @@ const EmployeePermissions = () => {
                   rows={2}
                   required
                   placeholder={
-                    form.requestType === 'WFH'
+                    form.requestType === 'WEEK_OFF'
+                      ? 'Specify compensatory week off reason (e.g. Worked on Sunday or Company Holiday)...'
+                      : form.requestType === 'WFH'
                       ? 'Explain reason for working from home...'
                       : form.requestType === 'LEAVE'
                       ? 'Specify reason for taking leave...'
@@ -726,10 +777,14 @@ const EmployeePermissions = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full btn-primary py-3 shadow-glow-teal text-xs font-bold"
+                  className={`w-full py-3 text-white text-xs font-bold rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 ${
+                    form.requestType === 'WEEK_OFF'
+                      ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
+                      : 'bg-teal-600 hover:bg-teal-700 shadow-glow-teal'
+                  }`}
                 >
-                  <Send className="w-3.5 h-3.5 mr-1.5" />
-                  {submitting ? 'Submitting Request...' : `Submit ${form.requestType === 'WFH' ? 'WFH' : form.requestType === 'LEAVE' ? 'Leave' : 'Permission'} Application`}
+                  <Send className="w-3.5 h-3.5" />
+                  {submitting ? 'Submitting Request...' : `Submit ${form.requestType === 'WEEK_OFF' ? 'Compensatory Week Off' : form.requestType === 'WFH' ? 'WFH' : form.requestType === 'LEAVE' ? 'Leave' : 'Permission'} Application`}
                 </button>
               </div>
             </form>

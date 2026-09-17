@@ -71,6 +71,12 @@ const AdminPermissions = () => {
 
   const renderTypeBadge = (type?: string) => {
     switch (type) {
+      case 'WEEK_OFF':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300">
+            🏖️ Week Off
+          </span>
+        );
       case 'WFH':
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">

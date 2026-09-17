@@ -102,8 +102,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     const result = await permissions().insertOne(newPermission);
 
+    const typeLabel = type === 'WEEK_OFF' ? 'Week Off' : (type === 'WFH' ? 'Work from Home' : (type === 'LEAVE' ? 'Leave' : 'Permission'));
     res.status(201).json({
-      message: `${type === 'WFH' ? 'Work from Home' : 'Permission'} request submitted successfully`,
+      message: `${typeLabel} request submitted successfully`,
       permissionId: result.insertedId,
       permission: { ...newPermission, _id: result.insertedId },
     });
