@@ -5,6 +5,11 @@ export const getTodayAttendance = async () => {
   return response.data;
 };
 
+export const getCustomSignInQuota = async () => {
+  const response = await api.get('/attendance/custom-signin-quota');
+  return response.data;
+};
+
 export const checkIn = async (location?: { latitude?: number; longitude?: number }, customTime?: string) => {
   const payload: any = {};
   if (location && location.latitude !== undefined && location.longitude !== undefined) {

@@ -48,9 +48,25 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
     let locationData: any = null;
 
     let checkInTimestamp = now;
+    const isCustomSignInRequested = !!(customTime && typeof customTime === 'string');
+
     if (approvedWfh && approvedWfh.startTime) {
       checkInTimestamp = combineDateAndTimeToISTDate(todayStr, approvedWfh.startTime);
-    } else if (customTime && typeof customTime === 'string') {
+    } else if (isCustomSignInRequested) {
+      // Validate monthly custom sign-in limit (Maximum 3 times per calendar month)
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const customSignInCount = await attendances().countDocuments({
+        employeeId,
+        date: { $gte: startOfMonth, $lte: endOfMonth },
+        isCustomSignIn: true,
+      });
+
+      if (customSignInCount >= 3) {
+        return res.status(400).json({
+          error: 'Monthly earlier sign-in limit reached (Maximum 3 times per month allowed). Please sign in with current time.',
+        });
+      }
       checkInTimestamp = combineDateAndTimeToISTDate(todayStr, customTime);
     }
 
@@ -95,6 +111,7 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
       wfhApprovedFromRequest: !!approvedWfh,
       totalWorkingSeconds: 0,
       totalStoppedSeconds: 0,
+      isCustomSignIn: isCustomSignInRequested,
     });
     const attendanceId = attendanceResult.insertedId;
     // Create initial event and work session
@@ -207,6 +224,31 @@ router.post('/check-out', authenticateToken, async (req: AuthRequest, res: Respo
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Check-out failed' });
+  }
+});
+
+router.get('/custom-signin-quota', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const employeeId = req.user!.employeeId;
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const count = await attendances().countDocuments({
+      employeeId,
+      date: { $gte: startOfMonth, $lte: endOfMonth },
+      isCustomSignIn: true,
+    });
+
+    res.json({
+      usedCount: count,
+      limit: 3,
+      remainingCount: Math.max(0, 3 - count),
+      canUseCustomSignIn: count < 3,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch custom sign-in quota' });
   }
 });
 

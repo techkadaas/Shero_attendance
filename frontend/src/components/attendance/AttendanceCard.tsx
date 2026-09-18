@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { checkIn, stopSession, resumeSession, checkOut } from '../../services/attendanceService';
+import { checkIn, stopSession, resumeSession, checkOut, getCustomSignInQuota } from '../../services/attendanceService';
 import LiveTimer from './LiveTimer';
 import { formatTime, formatDuration } from '../../utils/timeUtils';
 import { useAuth } from '../../context/AuthContext';
@@ -21,6 +21,12 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
   const [signInModalOpen, setSignInModalOpen] = useState(false);
   const [signInMode, setSignInMode] = useState<'NOW' | 'CUSTOM'>('NOW');
   const [customSignInTime, setCustomSignInTime] = useState('09:30');
+  const [customSignInQuota, setCustomSignInQuota] = useState<{
+    usedCount: number;
+    limit: number;
+    remainingCount: number;
+    canUseCustomSignIn: boolean;
+  }>({ usedCount: 0, limit: 3, remainingCount: 3, canUseCustomSignIn: true });
 
   const [signOutModalOpen, setSignOutModalOpen] = useState(false);
   const [signOutMode, setSignOutMode] = useState<'NOW' | 'CUSTOM'>('NOW');
@@ -74,11 +80,34 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
     return { hours, minutes, timeStr };
   };
 
+  useEffect(() => {
+    if (status === 'NOT_CHECKED_IN') {
+      getCustomSignInQuota()
+        .then((res) => {
+          if (res) setCustomSignInQuota(res);
+        })
+        .catch(() => {});
+    }
+  }, [status]);
+
   // Called when user clicks "SIGN IN NOW"
-  const handleCheckInClick = () => {
+  const handleCheckInClick = async () => {
     const { hours, minutes, timeStr } = getCurrentIST();
     // If after 10:15 AM
     if (hours > 10 || (hours === 10 && minutes > 15)) {
+      try {
+        const quota = await getCustomSignInQuota();
+        if (quota) {
+          setCustomSignInQuota(quota);
+          if (!quota.canUseCustomSignIn) {
+            // User reached 3-time monthly quota for earlier sign-in -> proceed with current time check-in directly
+            executeCheckIn();
+            return;
+          }
+        }
+      } catch (e) {
+        // Proceed with modal if check fails
+      }
       setSignInMode('NOW');
       setCustomSignInTime(timeStr > '10:00' ? '10:00' : '09:30');
       setSignInModalOpen(true);
@@ -362,36 +391,43 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
                 </div>
               </label>
 
-              <label className={`flex flex-col gap-2 p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                signInMode === 'CUSTOM' ? 'bg-teal-50/80 border-teal-300 text-teal-950 font-semibold' : 'bg-slate-50/60 border-slate-200 text-slate-700'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    name="signInMode"
-                    checked={signInMode === 'CUSTOM'}
-                    onChange={() => setSignInMode('CUSTOM')}
-                    className="text-teal-600 focus:ring-teal-500"
-                  />
-                  <div>
-                    <p className="text-xs font-bold text-slate-900">Choose Sign In Time (Earlier Time)</p>
-                    <p className="text-[11px] text-slate-500">Select when you actually started work today (e.g. 09:30 AM)</p>
-                  </div>
-                </div>
-
-                {signInMode === 'CUSTOM' && (
-                  <div className="pt-2 pl-7">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Select Check-in Time:</label>
+              {customSignInQuota.canUseCustomSignIn && (
+                <label className={`flex flex-col gap-2 p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                  signInMode === 'CUSTOM' ? 'bg-teal-50/80 border-teal-300 text-teal-950 font-semibold' : 'bg-slate-50/60 border-slate-200 text-slate-700'
+                }`}>
+                  <div className="flex items-center gap-3">
                     <input
-                      type="time"
-                      value={customSignInTime}
-                      max={currentISTTimeStr}
-                      onChange={(e) => setCustomSignInTime(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-mono font-bold bg-white rounded-xl border border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      type="radio"
+                      name="signInMode"
+                      checked={signInMode === 'CUSTOM'}
+                      onChange={() => setSignInMode('CUSTOM')}
+                      className="text-teal-600 focus:ring-teal-500"
                     />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-slate-900">Choose Sign In Time (Earlier Time)</p>
+                        <span className="text-[10px] font-semibold text-teal-700 bg-teal-100/80 px-2 py-0.5 rounded-full">
+                          {customSignInQuota.remainingCount} left this month
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">Select when you actually started work today (e.g. 09:30 AM)</p>
+                    </div>
                   </div>
-                )}
-              </label>
+
+                  {signInMode === 'CUSTOM' && (
+                    <div className="pt-2 pl-7">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Select Check-in Time:</label>
+                      <input
+                        type="time"
+                        value={customSignInTime}
+                        max={currentISTTimeStr}
+                        onChange={(e) => setCustomSignInTime(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-mono font-bold bg-white rounded-xl border border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  )}
+                </label>
+              )}
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -404,8 +440,8 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
               </button>
               <button
                 type="button"
-                onClick={() => executeCheckIn(signInMode === 'CUSTOM' ? customSignInTime : undefined)}
-                disabled={loadingAction !== null || (signInMode === 'CUSTOM' && !customSignInTime)}
+                onClick={() => executeCheckIn(signInMode === 'CUSTOM' && customSignInQuota.canUseCustomSignIn ? customSignInTime : undefined)}
+                disabled={loadingAction !== null || (signInMode === 'CUSTOM' && customSignInQuota.canUseCustomSignIn && !customSignInTime)}
                 className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-60"
               >
                 {loadingAction === 'Sign In' ? (
@@ -413,7 +449,7 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
                 ) : (
                   <Check className="w-3.5 h-3.5" />
                 )}
-                <span>{signInMode === 'CUSTOM' ? `Sign In at ${customSignInTime}` : 'Sign In Now'}</span>
+                <span>{signInMode === 'CUSTOM' && customSignInQuota.canUseCustomSignIn ? `Sign In at ${customSignInTime}` : 'Sign In Now'}</span>
               </button>
             </div>
           </div>
