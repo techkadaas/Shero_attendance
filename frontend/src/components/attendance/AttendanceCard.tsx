@@ -35,14 +35,27 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
         resolve(null);
         return;
       }
+
+      // 1. Try high accuracy first (GPS / Satellite)
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
         },
-        () => {
-          resolve(null);
+        (highAccError) => {
+          console.warn('High accuracy GPS timed out or unavailable, falling back to network location...', highAccError);
+          // 2. Fallback to standard/network accuracy (Wi-Fi / Cell tower - very reliable indoors on mobile)
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+            },
+            (lowAccError) => {
+              console.error('Mobile location detection failed:', lowAccError);
+              resolve(null);
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 }
+          );
         },
-        { enableHighAccuracy: true, timeout: 6000 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
       );
     });
   };
