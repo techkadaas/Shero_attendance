@@ -21,7 +21,9 @@ import {
   Trash2,
   Sparkles,
   Layers,
-  X
+  X,
+  ExternalLink,
+  Globe
 } from 'lucide-react';
 
 interface Holiday {
@@ -52,7 +54,59 @@ const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
+  const [googleMapsInput, setGoogleMapsInput] = useState('');
   const [sampleSalary, setSampleSalary] = useState(25000);
+
+  const handleParseGoogleMaps = (input: string) => {
+    setGoogleMapsInput(input);
+    const trimmed = input.trim();
+    if (!trimmed) return;
+
+    // 1. Match Google Maps @lat,lng
+    const urlMatch = trimmed.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (urlMatch) {
+      const lat = parseFloat(urlMatch[1]);
+      const lng = parseFloat(urlMatch[2]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setSettings((prev) => ({
+          ...prev,
+          officeLocation: { ...prev.officeLocation, latitude: lat, longitude: lng },
+        }));
+        toast.success(`Google Maps coordinates loaded: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        return;
+      }
+    }
+
+    // 2. Match Google Maps q=lat,lng or ll=lat,lng
+    const queryMatch = trimmed.match(/[?&](?:q|ll)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (queryMatch) {
+      const lat = parseFloat(queryMatch[1]);
+      const lng = parseFloat(queryMatch[2]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setSettings((prev) => ({
+          ...prev,
+          officeLocation: { ...prev.officeLocation, latitude: lat, longitude: lng },
+        }));
+        toast.success(`Google Maps coordinates loaded: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        return;
+      }
+    }
+
+    // 3. Match plain lat, lng
+    const plainMatch = trimmed.match(/^(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)$/);
+    if (plainMatch) {
+      const lat = parseFloat(plainMatch[1]);
+      const lng = parseFloat(plainMatch[2]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setSettings((prev) => ({
+          ...prev,
+          officeLocation: { ...prev.officeLocation, latitude: lat, longitude: lng },
+        }));
+        toast.success(`Coordinates loaded: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        return;
+      }
+    }
+  };
 
   // Holidays state
   const [holidays, setHolidays] = useState<Holiday[]>([]);
@@ -277,25 +331,69 @@ const AdminSettings = () => {
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   Office Location & Geofence Coordinates
                   <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200/80">
-                    Manual Input Enabled
+                    Google Maps Enabled
                   </span>
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Directly enter office address and coordinates below. WFO employees must be within this perimeter to check in.
+                  Set office coordinates via Google Maps or device GPS. WFO employees must be within this perimeter to check in.
                 </p>
               </div>
             </div>
             
-            <button
-              type="button"
-              onClick={handleDetectLocation}
-              disabled={detectingLocation}
-              className="px-4 py-2 bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2 active:scale-95 shrink-0"
-              title="Auto-detect coordinates using device GPS"
-            >
-              <Navigation className={`w-3.5 h-3.5 text-teal-600 ${detectingLocation ? 'animate-spin' : ''}`} />
-              {detectingLocation ? 'Detecting GPS...' : 'Auto-Fill from My Current Location'}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${settings.officeLocation.latitude},${settings.officeLocation.longitude}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                title="View current office pin in Google Maps"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                <span>Open Google Maps</span>
+              </a>
+              <button
+                type="button"
+                onClick={handleDetectLocation}
+                disabled={detectingLocation}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-xs active:scale-95 shrink-0"
+                title="Auto-detect coordinates using device GPS"
+              >
+                <Navigation className={`w-3.5 h-3.5 text-teal-100 ${detectingLocation ? 'animate-spin' : ''}`} />
+                {detectingLocation ? 'Detecting GPS...' : 'Auto-Fill Current GPS'}
+              </button>
+            </div>
+          </div>
+
+          {/* Google Maps Quick Link / Coordinates Importer */}
+          <div className="p-4 bg-teal-50/60 rounded-2xl border border-teal-200/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+                <Globe className="w-4 h-4 text-teal-600" />
+                Paste Google Maps Link or Coordinates:
+              </label>
+              <span className="text-[10px] font-semibold text-teal-700 bg-white/80 px-2 py-0.5 rounded-full border border-teal-200">
+                Auto-extracts Latitude & Longitude
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={googleMapsInput}
+                onChange={(e) => handleParseGoogleMaps(e.target.value)}
+                placeholder="e.g. https://maps.google.com/?q=13.0456,80.2345 or 13.0456, 80.2345"
+                className="w-full px-3.5 py-2 text-xs bg-white rounded-xl border border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-slate-800 placeholder:text-slate-400"
+              />
+              <button
+                type="button"
+                onClick={() => handleParseGoogleMaps(googleMapsInput)}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl whitespace-nowrap transition-colors"
+              >
+                Apply
+              </button>
+            </div>
+            <p className="text-[11px] text-teal-800/80">
+              💡 <strong>Tip:</strong> Open your office location in Google Maps, right-click on the building, click the coordinates to copy, and paste here!
+            </p>
           </div>
 
           {/* Quick Location Preset Selector */}
@@ -431,6 +529,29 @@ const AdminSettings = () => {
                   </ul>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Live Google Map Interactive View */}
+          <div className="pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Globe className="w-4 h-4 text-teal-600" />
+                Live Google Maps Location Preview:
+              </span>
+              <span className="text-[11px] text-slate-400 font-mono">
+                {settings.officeLocation.latitude.toFixed(4)}, {settings.officeLocation.longitude.toFixed(4)}
+              </span>
+            </div>
+            <div className="w-full h-72 rounded-2xl overflow-hidden border border-slate-200 shadow-xs bg-slate-100 relative">
+              <iframe
+                title="Google Map Office Location"
+                width="100%"
+                height="100%"
+                className="w-full h-full border-0"
+                loading="lazy"
+                src={`https://maps.google.com/maps?q=${settings.officeLocation.latitude},${settings.officeLocation.longitude}&z=16&output=embed`}
+              />
             </div>
           </div>
         </div>
