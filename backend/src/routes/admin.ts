@@ -2,11 +2,22 @@ import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
 import { getTodayRange, getISTMinutes } from '../utils/time';
-import { attendances, users, attendanceEvents, workSessions, settings, permissions, holidays } from '../mongo';
+import { attendances, users, attendanceEvents, workSessions, settings, permissions, holidays, wfhDays } from '../mongo';
 import bcrypt from 'bcryptjs';
 
 const router = Router();
 router.use(authenticateToken, requireAdmin);
+
+const DEFAULT_DEPARTMENTS = [
+  'DST',
+  'TECH',
+  'HR',
+  'OGB',
+  'KOB',
+  'Accounts',
+  'Finance',
+  'Compliance',
+];
 
 // --- Settings ---
 router.get('/settings', async (req: AuthRequest, res: Response) => {
@@ -27,8 +38,12 @@ router.get('/settings', async (req: AuthRequest, res: Response) => {
           radiusMeters: 100,
           address: 'Chennai, Tamil Nadu, India',
         },
+        departments: DEFAULT_DEPARTMENTS,
       };
       await settings().insertOne(currentSettings);
+    } else if (!currentSettings.departments || !Array.isArray(currentSettings.departments) || currentSettings.departments.length === 0) {
+      currentSettings.departments = DEFAULT_DEPARTMENTS;
+      await settings().updateOne({ _id: currentSettings._id }, { $set: { departments: DEFAULT_DEPARTMENTS } });
     }
     res.json(currentSettings);
   } catch (error) {
@@ -47,7 +62,8 @@ router.put('/settings', async (req: AuthRequest, res: Response) => {
       officeStartTime,
       officeEndTime,
       graceMinutes,
-      officeLocation
+      officeLocation,
+      departments
     } = req.body;
 
     const updateDoc: any = {
@@ -60,6 +76,12 @@ router.put('/settings', async (req: AuthRequest, res: Response) => {
     if (officeStartTime !== undefined) updateDoc.officeStartTime = officeStartTime;
     if (officeEndTime !== undefined) updateDoc.officeEndTime = officeEndTime;
     if (graceMinutes !== undefined) updateDoc.graceMinutes = Number(graceMinutes);
+    if (departments !== undefined && Array.isArray(departments)) {
+      const cleaned = departments
+        .map((d: any) => String(d).trim())
+        .filter((d: string) => d.length > 0);
+      updateDoc.departments = Array.from(new Set(cleaned));
+    }
     if (officeLocation !== undefined) {
       updateDoc.officeLocation = {
         latitude: Number(officeLocation.latitude) || 0,
@@ -445,6 +467,7 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       email,
       password,
       employeeId,
+      department,
       status = 'ACTIVE',
       workMode = 'WFO',
       isSsc = false,
@@ -475,6 +498,7 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       passwordHash,
       role: 'EMPLOYEE',
       employeeId,
+      department: department ? String(department).trim() : '',
       status,
       workMode: validWorkMode,
       isSsc: Boolean(isSsc),
@@ -492,6 +516,135 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// --- Admin Bulk Imports Employees from Excel data ---
+router.post('/employees/bulk-import', async (req: AuthRequest, res: Response) => {
+  try {
+    const { employees: importedList } = req.body as { employees: any[] };
+
+    if (!Array.isArray(importedList) || importedList.length === 0) {
+      return res.status(400).json({ error: 'No employee records provided for import' });
+    }
+
+    const allUsers = await users().find({}).toArray();
+    const existingEmails = new Set(allUsers.map((u) => u.email.toLowerCase().trim()));
+    const existingEmpIds = new Set(allUsers.map((u) => u.employeeId.toLowerCase().trim()));
+    const userMapByEmpId = new Map(allUsers.map((u) => [u.employeeId.toLowerCase().trim(), u._id.toString()]));
+    const userMapByEmail = new Map(allUsers.map((u) => [u.email.toLowerCase().trim(), u._id.toString()]));
+
+    const batchEmails = new Set<string>();
+    const batchEmpIds = new Set<string>();
+
+    const toInsert: any[] = [];
+    const skippedRecords: Array<{ employeeId?: string; name?: string; email?: string; reason: string }> = [];
+
+    for (let i = 0; i < importedList.length; i++) {
+      const row = importedList[i];
+      const rowIndex = i + 1;
+
+      const name = String(row.name || '').trim();
+      const email = String(row.email || '').trim().toLowerCase();
+      const employeeId = String(row.employeeId || '').trim();
+      const rawPassword = String(row.password || '').trim() || `${employeeId || 'Welcome'}@123`;
+      const department = String(row.department || '').trim();
+      const rawWorkMode = String(row.workMode || 'WFO').trim().toUpperCase();
+      const workMode = ['WFO', 'WFH', 'HYBRID'].includes(rawWorkMode) ? rawWorkMode : 'WFO';
+      const rawStatus = String(row.status || 'ACTIVE').trim().toUpperCase();
+      const status = ['ACTIVE', 'INACTIVE', 'STOPPED'].includes(rawStatus) ? rawStatus : 'ACTIVE';
+      const isSsc = Boolean(
+        row.isSsc === true || 
+        String(row.isSsc).toLowerCase() === 'true' || 
+        String(row.isSsc).toLowerCase() === 'yes' || 
+        String(row.isSsc) === '1'
+      );
+
+      // Validation
+      if (!name) {
+        skippedRecords.push({ employeeId, name, email, reason: `Row #${rowIndex}: Name is missing` });
+        continue;
+      }
+      if (!email || !email.includes('@')) {
+        skippedRecords.push({ employeeId, name, email, reason: `Row #${rowIndex}: Invalid or missing email (${email || 'blank'})` });
+        continue;
+      }
+      if (!employeeId) {
+        skippedRecords.push({ employeeId, name, email, reason: `Row #${rowIndex}: Employee ID is missing` });
+        continue;
+      }
+
+      // Check duplicates against existing DB
+      if (existingEmails.has(email)) {
+        skippedRecords.push({ employeeId, name, email, reason: `Email "${email}" already exists in database` });
+        continue;
+      }
+      if (existingEmpIds.has(employeeId.toLowerCase())) {
+        skippedRecords.push({ employeeId, name, email, reason: `Employee ID "${employeeId}" already exists in database` });
+        continue;
+      }
+
+      // Check duplicates within incoming batch
+      if (batchEmails.has(email)) {
+        skippedRecords.push({ employeeId, name, email, reason: `Duplicate email "${email}" within uploaded file` });
+        continue;
+      }
+      if (batchEmpIds.has(employeeId.toLowerCase())) {
+        skippedRecords.push({ employeeId, name, email, reason: `Duplicate Employee ID "${employeeId}" within uploaded file` });
+        continue;
+      }
+
+      // Resolve manager
+      let reportingManagerId: string | null = null;
+      if (row.reportingManagerId) {
+        const mgrKey = String(row.reportingManagerId).trim().toLowerCase();
+        if (userMapByEmpId.has(mgrKey)) {
+          reportingManagerId = userMapByEmpId.get(mgrKey) || null;
+        } else if (userMapByEmail.has(mgrKey)) {
+          reportingManagerId = userMapByEmail.get(mgrKey) || null;
+        } else if (ObjectId.isValid(row.reportingManagerId)) {
+          reportingManagerId = row.reportingManagerId.toString();
+        }
+      }
+
+      const passwordHash = await bcrypt.hash(rawPassword, 10);
+
+      toInsert.push({
+        name,
+        email,
+        passwordHash,
+        role: 'EMPLOYEE',
+        employeeId,
+        department,
+        status,
+        workMode,
+        isSsc,
+        reportingManagerId,
+        basicSalary: row.basicSalary ? Number(row.basicSalary) : 0,
+        grossSalary: row.grossSalary ? Number(row.grossSalary) : 0,
+        pfApplicable: Boolean(row.pfApplicable),
+        esiApplicable: Boolean(row.esiApplicable),
+        otherDeductions: row.otherDeductions ? Number(row.otherDeductions) : 0,
+        createdAt: new Date(),
+      });
+
+      batchEmails.add(email);
+      batchEmpIds.add(employeeId.toLowerCase());
+    }
+
+    if (toInsert.length > 0) {
+      await users().insertMany(toInsert);
+    }
+
+    res.status(200).json({
+      message: `Successfully imported ${toInsert.length} employees`,
+      importedCount: toInsert.length,
+      skippedCount: skippedRecords.length,
+      skippedRecords,
+    });
+  } catch (error) {
+    console.error('Bulk import employees error:', error);
+    res.status(500).json({ error: 'Failed to bulk import employees' });
+  }
+});
+
 // --- Admin updates an employee (Full details: name, email, employeeId, password, status, workMode, salary, manager) ---
 router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
   try {
@@ -501,6 +654,7 @@ router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
       email,
       password,
       employeeId,
+      department,
       status,
       workMode,
       isSsc,
@@ -542,6 +696,10 @@ router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
     // Update password if provided
     if (password && String(password).trim().length > 0) {
       updateFields.passwordHash = await bcrypt.hash(String(password).trim(), 10);
+    }
+
+    if (department !== undefined) {
+      updateFields.department = String(department).trim();
     }
 
     if (status !== undefined) {
@@ -945,6 +1103,145 @@ router.delete('/holidays/:id', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to delete holiday' });
+  }
+});
+
+// --- Company-Wide WFH Days Management ---
+router.get('/wfh-days', async (req: AuthRequest, res: Response) => {
+  try {
+    const list = await wfhDays().find({}).sort({ date: 1 }).toArray();
+    res.json(list);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch company WFH days' });
+  }
+});
+
+router.post('/wfh-days', async (req: AuthRequest, res: Response) => {
+  try {
+    const { date, title, description } = req.body;
+    if (!date) {
+      return res.status(400).json({ error: 'Date is required (YYYY-MM-DD)' });
+    }
+    const dateStr = String(date).trim();
+    const existing = await wfhDays().findOne({ date: dateStr });
+    if (existing) {
+      return res.status(409).json({ error: `A Company WFH schedule already exists for ${dateStr}` });
+    }
+
+    const newWfhDay = {
+      date: dateStr,
+      title: title ? String(title).trim() : 'Company-Wide Work From Home',
+      description: description ? String(description).trim() : '',
+      createdAt: new Date(),
+    };
+
+    const result = await wfhDays().insertOne(newWfhDay);
+    const updatedList = await wfhDays().find({}).sort({ date: 1 }).toArray();
+    res.status(201).json({
+      message: 'Company-wide WFH day added successfully',
+      wfhDay: { ...newWfhDay, _id: result.insertedId },
+      wfhDays: updatedList,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to add company WFH day' });
+  }
+});
+
+router.post('/wfh-days/bulk', async (req: AuthRequest, res: Response) => {
+  try {
+    const { rule, year, items, title: customTitle, description: customDesc } = req.body;
+    const targetYear = parseInt(year) || new Date().getFullYear();
+    const existingWfh = await wfhDays().find({}).toArray();
+    const existingDates = new Set(existingWfh.map((w) => w.date));
+
+    let toInsert: any[] = [];
+
+    if (Array.isArray(items) && items.length > 0) {
+      for (const item of items) {
+        if (item.date && !existingDates.has(item.date)) {
+          toInsert.push({
+            date: String(item.date).trim(),
+            title: String(item.title || customTitle || 'Company-Wide WFH Day').trim(),
+            description: item.description || customDesc || '',
+            createdAt: new Date(),
+          });
+          existingDates.add(item.date);
+        }
+      }
+    } else if (rule === 'WEDNESDAYS' || rule === 'SATURDAYS' || rule === 'WEDNESDAYS_AND_SATURDAYS' || rule === 'FRIDAYS') {
+      const startDate = new Date(targetYear, 0, 1);
+      const endDate = new Date(targetYear, 11, 31);
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dayOfWeek = d.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+        let shouldInclude = false;
+        let defaultTitle = 'Company WFH Day';
+
+        if (rule === 'WEDNESDAYS' && dayOfWeek === 3) {
+          shouldInclude = true;
+          defaultTitle = 'Wednesday Team WFH';
+        } else if (rule === 'SATURDAYS' && dayOfWeek === 6) {
+          shouldInclude = true;
+          defaultTitle = 'Saturday Team WFH';
+        } else if (rule === 'WEDNESDAYS_AND_SATURDAYS' && (dayOfWeek === 3 || dayOfWeek === 6)) {
+          shouldInclude = true;
+          defaultTitle = dayOfWeek === 3 ? 'Wednesday Team WFH' : 'Saturday Team WFH';
+        } else if (rule === 'FRIDAYS' && dayOfWeek === 5) {
+          shouldInclude = true;
+          defaultTitle = 'Friday Remote WFH';
+        }
+
+        if (shouldInclude) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          const dateStr = `${yyyy}-${mm}-${dd}`;
+          if (!existingDates.has(dateStr)) {
+            toInsert.push({
+              date: dateStr,
+              title: customTitle ? String(customTitle).trim() : defaultTitle,
+              description: customDesc || `Scheduled recurring WFH day for ${targetYear}`,
+              createdAt: new Date(),
+            });
+            existingDates.add(dateStr);
+          }
+        }
+      }
+    }
+
+    if (toInsert.length > 0) {
+      await wfhDays().insertMany(toInsert);
+    }
+
+    const updatedList = await wfhDays().find({}).sort({ date: 1 }).toArray();
+    res.json({
+      message: `Successfully generated ${toInsert.length} company WFH days`,
+      addedCount: toInsert.length,
+      wfhDays: updatedList,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to bulk create WFH days' });
+  }
+});
+
+router.delete('/wfh-days/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = String(req.params.id);
+    let query: any = { date: id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { date: id }] };
+    }
+    const result = await wfhDays().deleteOne(query);
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Company WFH day not found' });
+    }
+    const updatedList = await wfhDays().find({}).sort({ date: 1 }).toArray();
+    res.json({ message: 'Company WFH day removed successfully', wfhDays: updatedList });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete company WFH day' });
   }
 });
 

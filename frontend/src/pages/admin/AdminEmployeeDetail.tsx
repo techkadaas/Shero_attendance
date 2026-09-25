@@ -8,22 +8,31 @@ import {
   UserCog, 
   Pencil,
   Calendar, 
-  IndianRupee, 
   UserCheck, 
   Building2, 
+  Briefcase,
   Home, 
   Mail, 
   ShieldCheck, 
   Clock, 
-  Percent, 
   CheckCircle2, 
   X, 
   Eye, 
   EyeOff, 
   Sparkles,
-  Layers,
-  FileText
+  Layers
 } from 'lucide-react';
+
+const DEFAULT_DEPARTMENTS = [
+  'DST',
+  'TECH',
+  'HR',
+  'OGB',
+  'KOB',
+  'Accounts',
+  'Finance',
+  'Compliance',
+];
 
 export const AdminEmployeeDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +40,7 @@ export const AdminEmployeeDetail = () => {
 
   const [data, setData] = useState<any>(null);
   const [managers, setManagers] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<string[]>(DEFAULT_DEPARTMENTS);
   const [loading, setLoading] = useState(true);
 
   // Quick edit modal state
@@ -41,6 +51,7 @@ export const AdminEmployeeDetail = () => {
     email: '',
     password: '',
     employeeId: '',
+    department: '',
     status: 'ACTIVE',
     workMode: 'WFO',
     reportingManagerId: '',
@@ -54,12 +65,16 @@ export const AdminEmployeeDetail = () => {
   const fetchEmployeeDetail = async () => {
     try {
       setLoading(true);
-      const [detailRes, mgrRes] = await Promise.all([
+      const [detailRes, mgrRes, settingsRes] = await Promise.all([
         api.get(`/admin/employees/${id}/detail`),
         api.get('/admin/managers'),
+        api.get('/admin/settings').catch(() => ({ data: { departments: DEFAULT_DEPARTMENTS } })),
       ]);
       setData(detailRes.data);
       setManagers(mgrRes.data);
+      if (settingsRes?.data?.departments && Array.isArray(settingsRes.data.departments) && settingsRes.data.departments.length > 0) {
+        setDepartments(settingsRes.data.departments);
+      }
 
       const emp = detailRes.data.employee;
       setEditForm({
@@ -67,6 +82,7 @@ export const AdminEmployeeDetail = () => {
         email: emp.email || '',
         password: '',
         employeeId: emp.employeeId || '',
+        department: emp.department || '',
         status: emp.status || 'ACTIVE',
         workMode: emp.workMode || 'WFO',
         reportingManagerId: emp.reportingManager?.id || emp.reportingManagerId || '',
@@ -93,7 +109,7 @@ export const AdminEmployeeDetail = () => {
     if (!data?.employee?._id) return;
     try {
       await api.put(`/admin/employees/${data.employee._id}`, editForm);
-      toast.success('Employee details & salary updated successfully!');
+      toast.success('Employee profile updated successfully!');
       setEditOpen(false);
       fetchEmployeeDetail();
     } catch (err: any) {
@@ -128,16 +144,6 @@ export const AdminEmployeeDetail = () => {
   const recentAttendance = data.recentAttendance || [];
   const approvedLeaves = data.approvedLeaves || [];
 
-  // Computed Salary Breakdown
-  const basic = Number(emp.basicSalary) || (Number(emp.grossSalary) * 0.5) || 0;
-  const gross = Number(emp.grossSalary) || 0;
-  const pfEmp = emp.pfApplicable ? basic * 0.12 : 0;
-  const pfCompany = emp.pfApplicable ? basic * 0.12 : 0;
-  const esiEmp = emp.esiApplicable && gross <= 21000 ? gross * 0.0075 : 0;
-  const esiCompany = emp.esiApplicable && gross <= 21000 ? gross * 0.0325 : 0;
-  const otherDed = Number(emp.otherDeductions) || 0;
-  const netPay = Math.max(0, gross - pfEmp - esiEmp - otherDed);
-
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12 animate-fade-in">
       
@@ -160,20 +166,13 @@ export const AdminEmployeeDetail = () => {
             <Calendar className="w-3.5 h-3.5" />
             <span>View Attendance History</span>
           </Link>
-          <Link
-            to={`/admin/payroll/${emp._id}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 text-xs font-bold shadow-2xs transition-all"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Payroll Statement</span>
-          </Link>
           <button
             type="button"
             onClick={() => setEditOpen(true)}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
           >
             <Pencil className="w-3.5 h-3.5" />
-            <span>Edit Profile & Salary</span>
+            <span>Edit Profile</span>
           </button>
         </div>
       </div>
@@ -198,6 +197,12 @@ export const AdminEmployeeDetail = () => {
                 <span className="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
                   {emp.employeeId}
                 </span>
+                {emp.department && (
+                  <span className="flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+                    <Briefcase className="w-3.5 h-3.5 text-teal-600" />
+                    {emp.department}
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5 text-slate-400" />
                   {emp.email}
@@ -249,7 +254,7 @@ export const AdminEmployeeDetail = () => {
         </div>
       </div>
 
-      {/* Grid: Reporting Manager & Salary Structure */}
+      {/* Grid: Reporting Manager & Recent Attendance Logs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Reporting Line Card */}
@@ -306,162 +311,90 @@ export const AdminEmployeeDetail = () => {
           </div>
         </div>
 
-        {/* Salary & Compensation Structure Card */}
-        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200/80 p-6 shadow-card space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+        {/* Recent Attendance Log Snippet */}
+        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200/80 p-6 shadow-card space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
-                <IndianRupee className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
+                <Clock className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Compensation & Statutory Structure</h3>
-                <p className="text-[11px] text-slate-500">Monthly base and compliance deduction configuration</p>
+                <h3 className="text-sm font-bold text-slate-900">Recent Attendance Logs</h3>
+                <p className="text-[11px] text-slate-500">Most recent punches on record</p>
               </div>
             </div>
-            <span className="text-xs font-mono font-extrabold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200 self-start sm:self-auto">
-              Net Take-Home: ₹{netPay.toLocaleString('en-IN')} / mo
-            </span>
+            <Link
+              to={`/admin/employees/${emp.employeeId}/attendance`}
+              className="text-xs font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1"
+            >
+              <span>Full History</span>
+              <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
+            </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Gross Salary</span>
-              <span className="text-base font-extrabold font-mono text-slate-900 mt-1 block">
-                ₹{gross.toLocaleString('en-IN')}
-              </span>
+          {recentAttendance.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              No attendance records found for this employee yet.
             </div>
-
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Basic Salary</span>
-              <span className="text-base font-extrabold font-mono text-slate-900 mt-1 block">
-                ₹{basic.toLocaleString('en-IN')}
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-100">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider block">PF (12%)</span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${emp.pfApplicable ? 'bg-blue-200 text-blue-800' : 'bg-slate-200 text-slate-600'}`}>
-                  {emp.pfApplicable ? 'YES' : 'NO'}
-                </span>
-              </div>
-              <span className="text-base font-extrabold font-mono text-blue-900 mt-1 block">
-                ₹{pfEmp.toFixed(0)}
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-100">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-purple-700 uppercase tracking-wider block">ESI (0.75%)</span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${emp.esiApplicable ? 'bg-purple-200 text-purple-800' : 'bg-slate-200 text-slate-600'}`}>
-                  {emp.esiApplicable ? 'YES' : 'NO'}
-                </span>
-              </div>
-              <span className="text-base font-extrabold font-mono text-purple-900 mt-1 block">
-                ₹{esiEmp.toFixed(0)}
-              </span>
-            </div>
-          </div>
-
-          <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 text-xs text-slate-600 space-y-2">
-            <div className="flex justify-between items-center">
-              <span>Employer PF Contribution (12%):</span>
-              <span className="font-mono font-bold text-slate-800">₹{pfCompany.toFixed(0)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span>Employer ESI Contribution (3.25%):</span>
-              <span className="font-mono font-bold text-slate-800">₹{esiCompany.toFixed(0)}</span>
-            </div>
-            <div className="flex justify-between items-center pt-2 border-t border-slate-200/60">
-              <span>Other Custom Monthly Deductions:</span>
-              <span className="font-mono font-bold text-rose-600">-₹{otherDed.toFixed(0)}</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Recent Attendance Log Snippet */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-card space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Recent Attendance Logs</h3>
-              <p className="text-[11px] text-slate-500">Most recent punches on record</p>
-            </div>
-          </div>
-          <Link
-            to={`/admin/employees/${emp.employeeId}/attendance`}
-            className="text-xs font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1"
-          >
-            <span>Full History</span>
-            <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
-          </Link>
-        </div>
-
-        {recentAttendance.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-            No attendance records found for this employee yet.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
-                <tr>
-                  <th className="px-4 py-2.5">Date</th>
-                  <th className="px-4 py-2.5">Sign In</th>
-                  <th className="px-4 py-2.5">Sign Out</th>
-                  <th className="px-4 py-2.5">Total Hours</th>
-                  <th className="px-4 py-2.5">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {recentAttendance.map((rec: any) => (
-                  <tr key={rec._id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 font-mono font-bold text-slate-900">
-                      {new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-slate-700">
-                      {rec.checkIn ? new Date(rec.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-slate-700">
-                      {rec.checkOut ? new Date(rec.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                    </td>
-                    <td className="px-4 py-3 font-mono font-bold text-teal-700">
-                      {Math.floor(rec.totalWorkingSeconds / 3600)}h {Math.floor((rec.totalWorkingSeconds % 3600) / 60)}m
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
-                        rec.status === 'CHECKED_OUT' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                        rec.status === 'WORKING' ? 'bg-teal-50 text-teal-700 border-teal-200' :
-                        'bg-slate-100 text-slate-700 border-slate-200'
-                      }`}>
-                        {rec.status}
-                      </span>
-                    </td>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
+                  <tr>
+                    <th className="px-4 py-2.5">Date</th>
+                    <th className="px-4 py-2.5">Sign In</th>
+                    <th className="px-4 py-2.5">Sign Out</th>
+                    <th className="px-4 py-2.5">Total Hours</th>
+                    <th className="px-4 py-2.5">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {recentAttendance.map((rec: any) => (
+                    <tr key={rec._id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-4 py-3 font-mono font-bold text-slate-900">
+                        {new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-slate-700">
+                        {rec.checkIn ? new Date(rec.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-slate-700">
+                        {rec.checkOut ? new Date(rec.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-bold text-teal-700">
+                        {Math.floor(rec.totalWorkingSeconds / 3600)}h {Math.floor((rec.totalWorkingSeconds % 3600) / 60)}m
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                          rec.status === 'CHECKED_OUT' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          rec.status === 'WORKING' ? 'bg-teal-50 text-teal-700 border-teal-200' :
+                          'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}>
+                          {rec.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
       </div>
 
       {/* Edit Full Profile Modal */}
       {editOpen && createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-xl overflow-hidden border border-slate-100 animate-slide-up flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 sm:p-6 animate-fade-in overflow-y-auto">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-xl overflow-hidden border border-slate-100 animate-slide-up flex flex-col max-h-[90vh] my-auto">
+            {/* Modal Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center font-bold">
                   <Pencil className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-extrabold text-slate-900">Edit Staff Profile & Salary</h2>
-                  <p className="text-[11px] text-slate-500">Update work mode, manager, salary & credentials</p>
+                  <h2 className="text-sm font-extrabold text-slate-900">Edit Staff Profile</h2>
+                  <p className="text-[11px] text-slate-500">Update work mode, credentials & compensation</p>
                 </div>
               </div>
               <button
@@ -473,11 +406,12 @@ export const AdminEmployeeDetail = () => {
               </button>
             </div>
 
-            <form onSubmit={handleUpdate} className="p-6 space-y-4 overflow-y-auto">
+            {/* Modal Body */}
+            <form id="editStaffDetailForm" onSubmit={handleUpdate} className="p-6 space-y-5 overflow-y-auto flex-1">
               {/* Work Mode */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Work Mode Policy
+                  1. Work Mode Policy
                 </label>
                 <div className="grid grid-cols-3 gap-2.5">
                   {[
@@ -511,90 +445,110 @@ export const AdminEmployeeDetail = () => {
               </div>
 
               {/* Personal & Account */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="form-input text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={editForm.email}
-                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                    className="form-input text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Employee ID</label>
-                  <input
-                    type="text"
-                    required
-                    value={editForm.employeeId}
-                    onChange={(e) => setEditForm({ ...editForm, employeeId: e.target.value })}
-                    className="form-input font-mono text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Reset Password</label>
-                  <div className="relative">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  2. Account & Organization
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
                     <input
-                      placeholder="Leave blank to keep current"
-                      type={showPassword ? 'text' : 'password'}
-                      value={editForm.password}
-                      onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                      className="form-input pr-10 text-xs"
+                      type="text"
+                      required
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="form-input text-xs"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
-                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status</label>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                    className="form-input text-xs"
-                  >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Reporting Manager</label>
-                  <select
-                    value={editForm.reportingManagerId}
-                    onChange={(e) => setEditForm({ ...editForm, reportingManagerId: e.target.value })}
-                    className="form-input text-xs"
-                  >
-                    <option value="">None (Independent / Admin)</option>
-                    {managers
-                      .filter((m) => m._id !== emp._id)
-                      .map((mgr) => (
-                        <option key={mgr._id} value={mgr._id}>
-                          {mgr.name} ({mgr.employeeId}) {mgr.role === 'ADMIN' ? '— Admin' : ''}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      className="form-input text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Employee ID</label>
+                    <input
+                      type="text"
+                      required
+                      value={editForm.employeeId}
+                      onChange={(e) => setEditForm({ ...editForm, employeeId: e.target.value })}
+                      className="form-input font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Reset Password</label>
+                    <div className="relative">
+                      <input
+                        placeholder="Leave blank to keep current"
+                        type={showPassword ? 'text' : 'password'}
+                        value={editForm.password}
+                        onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                        className="form-input pr-10 text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Department</label>
+                    <select
+                      value={editForm.department}
+                      onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                      className="form-input text-xs"
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map((dept) => (
+                        <option key={dept} value={dept}>
+                          {dept}
                         </option>
                       ))}
-                  </select>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status</label>
+                    <select
+                      value={editForm.status}
+                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                      className="form-input text-xs"
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Reporting Manager</label>
+                    <select
+                      value={editForm.reportingManagerId}
+                      onChange={(e) => setEditForm({ ...editForm, reportingManagerId: e.target.value })}
+                      className="form-input text-xs"
+                    >
+                      <option value="">None (Independent / Admin)</option>
+                      {managers
+                        .filter((m) => m._id !== emp._id)
+                        .map((mgr) => (
+                          <option key={mgr._id} value={mgr._id}>
+                            {mgr.name} ({mgr.employeeId}) {mgr.role === 'ADMIN' ? '— Admin' : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {/* Compensation */}
+              {/* Compensation & Salary */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Compensation & Salary
+                  3. Compensation & Salary Setup
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
@@ -602,7 +556,7 @@ export const AdminEmployeeDetail = () => {
                     <input
                       type="number"
                       min="0"
-                      required
+                      placeholder="e.g. 25000"
                       value={editForm.grossSalary}
                       onChange={(e) => setEditForm({ ...editForm, grossSalary: e.target.value })}
                       className="form-input font-mono text-xs"
@@ -613,6 +567,7 @@ export const AdminEmployeeDetail = () => {
                     <input
                       type="number"
                       min="0"
+                      placeholder="e.g. 15000"
                       value={editForm.basicSalary}
                       onChange={(e) => setEditForm({ ...editForm, basicSalary: e.target.value })}
                       className="form-input font-mono text-xs"
@@ -623,50 +578,53 @@ export const AdminEmployeeDetail = () => {
                     <input
                       type="number"
                       min="0"
+                      placeholder="0"
                       value={editForm.otherDeductions}
                       onChange={(e) => setEditForm({ ...editForm, otherDeductions: e.target.value })}
                       className="form-input font-mono text-xs"
                     />
                   </div>
                 </div>
-                <div className="flex gap-6 pt-3">
-                  <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                <div className="mt-3 flex flex-wrap items-center gap-4">
+                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
                     <input
                       type="checkbox"
                       checked={editForm.pfApplicable}
                       onChange={(e) => setEditForm({ ...editForm, pfApplicable: e.target.checked })}
-                      className="rounded text-teal-600 focus:ring-teal-500"
+                      className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer"
                     />
                     <span>PF Applicable (12%)</span>
                   </label>
-                  <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
                     <input
                       type="checkbox"
                       checked={editForm.esiApplicable}
                       onChange={(e) => setEditForm({ ...editForm, esiApplicable: e.target.checked })}
-                      className="rounded text-teal-600 focus:ring-teal-500"
+                      className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer"
                     />
                     <span>ESI Applicable (0.75%)</span>
                   </label>
                 </div>
               </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(false)}
-                  className="btn-secondary px-5 py-2.5 text-xs font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary px-6 py-2.5 text-xs font-bold shadow-glow-teal"
-                >
-                  Save All Changes
-                </button>
-              </div>
             </form>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setEditOpen(false)}
+                className="btn-secondary px-5 py-2.5 text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="editStaffDetailForm"
+                className="btn-primary px-6 py-2.5 text-xs font-bold shadow-glow-teal"
+              >
+                Save All Changes
+              </button>
+            </div>
           </div>
         </div>,
         document.body

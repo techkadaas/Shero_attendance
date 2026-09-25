@@ -34,6 +34,7 @@ const EmployeePermissions = () => {
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
+  const isSsc = Boolean(user?.isSsc || (user?.workMode as string) === 'SSC');
   const todayStr = new Date().toISOString().split('T')[0];
   const [dayType, setDayType] = useState<'FULL_DAY' | 'HALF_DAY'>('FULL_DAY');
   const [halfDaySlot, setHalfDaySlot] = useState<'FIRST_HALF' | 'SECOND_HALF'>('FIRST_HALF');
@@ -49,7 +50,7 @@ const EmployeePermissions = () => {
     startTime: '09:00',
     endTime: '18:00',
     reason: '',
-    requestType: user?.isSsc ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
+    requestType: isSsc ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -134,7 +135,7 @@ const EmployeePermissions = () => {
         startTime: '09:00',
         endTime: '18:00',
         reason: '',
-        requestType: user?.isSsc ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
+        requestType: isSsc ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
       });
       fetchData();
     } catch (error: any) {
@@ -264,7 +265,12 @@ const EmployeePermissions = () => {
         </div>
 
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            if (!isSsc && form.requestType === 'WEEK_OFF') {
+              setForm(f => ({ ...f, requestType: user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION' }));
+            }
+            setShowModal(true);
+          }}
           className="btn-primary w-full sm:w-auto shadow-glow-teal"
         >
           <Plus className="w-4 h-4 mr-1.5" /> Request Time Off
@@ -575,7 +581,11 @@ const EmployeePermissions = () => {
                 </div>
                 <div>
                   <h2 className="text-sm font-extrabold text-slate-900">New Work Request</h2>
-                  <p className="text-[11px] text-slate-500">Apply for WFH remote day, full/half leave, or permission</p>
+                  <p className="text-[11px] text-slate-500">
+                    {isSsc
+                      ? 'Apply for compensatory week off, WFH remote day, full/half leave, or permission'
+                      : 'Apply for WFH remote day, full/half leave, or permission'}
+                  </p>
                 </div>
               </div>
               <button
@@ -593,9 +603,11 @@ const EmployeePermissions = () => {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   1. Request Category
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className={`grid gap-2 ${isSsc ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
                   {[
-                    { id: 'WEEK_OFF', label: 'Week Off', icon: '🏖️', desc: 'Compensatory weekday off', highlight: Boolean(user?.isSsc) },
+                    ...(isSsc
+                      ? [{ id: 'WEEK_OFF', label: 'Week Off', icon: '🏖️', desc: 'Compensatory weekday off', highlight: true }]
+                      : []),
                     { id: 'WFH', label: 'Work From Home', icon: '🏠', desc: 'Remote day request', highlight: false },
                     { id: 'LEAVE', label: 'Leave', icon: '🌴', desc: 'Full or Half Day off', highlight: false },
                     { id: 'PERMISSION', label: 'Permission', icon: '⏱️', desc: 'Short 1-2h errand', highlight: false },

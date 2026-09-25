@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { getTodayRange, calculateDurationSeconds, getISTTodayString, combineDateAndTimeToISTDate } from '../utils/time';
-import { attendances, attendanceEvents, workSessions, users, settings, permissions, holidays } from '../mongo';
+import { attendances, attendanceEvents, workSessions, users, settings, permissions, holidays, wfhDays } from '../mongo';
 import { calculateDistanceMeters } from '../utils/geo';
 
 // Ensure connection is established (mongo.ts connects on import)
@@ -34,17 +34,21 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
       return res.status(400).json({ error: 'Already signed in today' });
     }
 
-    // Check if user has an approved WFH request for today
     const todayStr = getISTTodayString(now);
-    const approvedWfh = await permissions().findOne({
-      employeeId,
-      requestType: 'WFH',
-      date: todayStr,
-      status: 'APPROVED',
-    });
+    // Check if user has an individual approved WFH request OR if today is a Company-Wide WFH Day
+    const [approvedWfh, companyWfhDay] = await Promise.all([
+      permissions().findOne({
+        employeeId,
+        requestType: 'WFH',
+        date: todayStr,
+        status: 'APPROVED',
+      }),
+      wfhDays().findOne({ date: todayStr }),
+    ]);
 
     const user = await users().findOne({ employeeId });
-    const workMode = approvedWfh ? 'WFH' : (user?.workMode || 'WFO');
+    const isWfhToday = !!approvedWfh || !!companyWfhDay;
+    const workMode = isWfhToday ? 'WFH' : (user?.workMode || 'WFO');
     let locationData: any = null;
 
     let checkInTimestamp = now;
@@ -254,10 +258,50 @@ router.get('/custom-signin-quota', authenticateToken, async (req: AuthRequest, r
 
 router.get('/today', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const attendance = await getTodayAttendance(req.user!.employeeId);
-    res.json(attendance || null);
+    const todayStr = getISTTodayString(new Date());
+    const [attendance, companyWfhDay] = await Promise.all([
+      getTodayAttendance(req.user!.employeeId),
+      wfhDays().findOne({ date: todayStr }),
+    ]);
+
+    if (attendance) {
+      res.json({
+        ...attendance,
+        isCompanyWfhDay: !!companyWfhDay,
+        companyWfhDay: companyWfhDay || null,
+      });
+    } else {
+      res.json(null);
+    }
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch today attendance' });
+  }
+});
+
+router.get('/today-status', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const todayStr = getISTTodayString(new Date());
+    const [attendance, companyWfhDay] = await Promise.all([
+      getTodayAttendance(req.user!.employeeId),
+      wfhDays().findOne({ date: todayStr }),
+    ]);
+    res.json({
+      attendance: attendance || null,
+      isCompanyWfhDay: !!companyWfhDay,
+      companyWfhDay: companyWfhDay || null,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch today status' });
+  }
+});
+
+router.get('/wfh-days', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const list = await wfhDays().find({}).sort({ date: 1 }).toArray();
+    res.json(list);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch company WFH days' });
   }
 });
 

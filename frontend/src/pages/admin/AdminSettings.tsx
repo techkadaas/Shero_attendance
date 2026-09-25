@@ -15,6 +15,9 @@ import {
   MapPin,
   Navigation,
   Building2,
+  Briefcase,
+  Home,
+  Laptop,
   Compass,
   Calendar,
   Plus,
@@ -23,7 +26,10 @@ import {
   Layers,
   X,
   ExternalLink,
-  Globe
+  Globe,
+  ChevronLeft,
+  ChevronRight,
+  Check
 } from 'lucide-react';
 
 interface Holiday {
@@ -33,6 +39,24 @@ interface Holiday {
   type?: string;
   description?: string;
 }
+
+interface WfhDay {
+  _id?: string;
+  date: string;
+  title: string;
+  description?: string;
+}
+
+const DEFAULT_DEPARTMENTS = [
+  'DST',
+  'TECH',
+  'HR',
+  'OGB',
+  'KOB',
+  'Accounts',
+  'Finance',
+  'Compliance',
+];
 
 const AdminSettings = () => {
   const [settings, setSettings] = useState({
@@ -44,6 +68,7 @@ const AdminSettings = () => {
     officeEndTime: '18:00',
     graceMinutes: 15,
     workWeekPattern: '6_DAYS',
+    departments: DEFAULT_DEPARTMENTS,
     officeLocation: {
       latitude: 13.0827,
       longitude: 80.2707,
@@ -56,6 +81,7 @@ const AdminSettings = () => {
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [googleMapsInput, setGoogleMapsInput] = useState('');
   const [sampleSalary, setSampleSalary] = useState(25000);
+  const [newDepartmentInput, setNewDepartmentInput] = useState('');
 
   const handleParseGoogleMaps = (input: string) => {
     setGoogleMapsInput(input);
@@ -125,10 +151,203 @@ const AdminSettings = () => {
   const [bulkRule, setBulkRule] = useState<'SUNDAYS' | 'SATURDAYS_2_4'>('SUNDAYS');
   const [submittingBulk, setSubmittingBulk] = useState(false);
 
+  // Company WFH Schedule State
+  const [wfhDaysList, setWfhDaysList] = useState<WfhDay[]>([]);
+  const [loadingWfhDays, setLoadingWfhDays] = useState(false);
+  const [submittingWfhDay, setSubmittingWfhDay] = useState(false);
+  const [wfhDayForm, setWfhDayForm] = useState({
+    date: '',
+    title: 'Company-Wide Work From Home',
+    description: '',
+  });
+
+  // Bulk WFH Modal State
+  const [bulkWfhModalOpen, setBulkWfhModalOpen] = useState(false);
+  const [bulkWfhTab, setBulkWfhTab] = useState<'CALENDAR' | 'RULES'>('CALENDAR');
+  const [wfhCalendarMonth, setWfhCalendarMonth] = useState<Date>(new Date());
+  const [selectedWfhDates, setSelectedWfhDates] = useState<string[]>([]);
+  const [bulkCustomTitle, setBulkCustomTitle] = useState('Company-Wide Work From Home');
+  const [bulkCustomDesc, setBulkCustomDesc] = useState('');
+  const [bulkWfhYear, setBulkWfhYear] = useState(new Date().getFullYear());
+  const [bulkWfhRule, setBulkWfhRule] = useState<'WEDNESDAYS_AND_SATURDAYS' | 'WEDNESDAYS' | 'SATURDAYS' | 'FRIDAYS'>('WEDNESDAYS_AND_SATURDAYS');
+  const [submittingBulkWfh, setSubmittingBulkWfh] = useState(false);
+
   useEffect(() => {
     fetchSettings();
     fetchHolidays();
+    fetchWfhDays();
   }, []);
+
+  const fetchWfhDays = async () => {
+    try {
+      setLoadingWfhDays(true);
+      const res = await api.get('/admin/wfh-days');
+      if (Array.isArray(res.data)) {
+        setWfhDaysList(res.data);
+      } else if (res.data?.wfhDays && Array.isArray(res.data.wfhDays)) {
+        setWfhDaysList(res.data.wfhDays);
+      } else {
+        setWfhDaysList([]);
+      }
+    } catch (error) {
+      console.error('Failed to load company WFH days', error);
+    } finally {
+      setLoadingWfhDays(false);
+    }
+  };
+
+  const handleAddWfhDay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wfhDayForm.date) {
+      toast.error('Please select a date for WFH schedule');
+      return;
+    }
+    setSubmittingWfhDay(true);
+    try {
+      const res = await api.post('/admin/wfh-days', wfhDayForm);
+      toast.success('Company-wide WFH day added successfully!');
+      if (Array.isArray(res.data.wfhDays)) {
+        setWfhDaysList(res.data.wfhDays);
+      } else {
+        await fetchWfhDays();
+      }
+      setWfhDayForm({ date: '', title: 'Company-Wide Work From Home', description: '' });
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to add company WFH day');
+    } finally {
+      setSubmittingWfhDay(false);
+    }
+  };
+
+  const handleDeleteWfhDay = async (idOrDate?: string) => {
+    if (!idOrDate) return;
+    if (!window.confirm('Are you sure you want to remove this scheduled WFH day?')) return;
+    try {
+      const res = await api.delete(`/admin/wfh-days/${idOrDate}`);
+      toast.success('Company WFH day removed successfully');
+      if (Array.isArray(res.data.wfhDays)) {
+        setWfhDaysList(res.data.wfhDays);
+      } else {
+        await fetchWfhDays();
+      }
+    } catch (err: any) {
+      toast.error('Failed to delete WFH day');
+    }
+  };
+
+  // Calendar helpers for Multi-Date Selection
+  const handleToggleCalendarDate = (dateStr: string) => {
+    setSelectedWfhDates(prev => 
+      prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr].sort()
+    );
+  };
+
+  const handlePrevWfhMonth = () => {
+    setWfhCalendarMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextWfhMonth = () => {
+    setWfhCalendarMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
+  const handleQuickSelectDayOfWeek = (targetDay: number) => {
+    const year = wfhCalendarMonth.getFullYear();
+    const month = wfhCalendarMonth.getMonth();
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const matchingDates: string[] = [];
+
+    for (let day = 1; day <= lastDay; day++) {
+      const d = new Date(year, month, day);
+      if (d.getDay() === targetDay) {
+        const yyyy = year;
+        const mm = String(month + 1).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        matchingDates.push(`${yyyy}-${mm}-${dd}`);
+      }
+    }
+
+    const allSelected = matchingDates.every(d => selectedWfhDates.includes(d));
+    if (allSelected) {
+      setSelectedWfhDates(prev => prev.filter(d => !matchingDates.includes(d)));
+    } else {
+      setSelectedWfhDates(prev => Array.from(new Set([...prev, ...matchingDates])).sort());
+    }
+  };
+
+  const handleQuickSelectWedAndSat = () => {
+    const year = wfhCalendarMonth.getFullYear();
+    const month = wfhCalendarMonth.getMonth();
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const matchingDates: string[] = [];
+
+    for (let day = 1; day <= lastDay; day++) {
+      const d = new Date(year, month, day);
+      if (d.getDay() === 3 || d.getDay() === 6) { // Wednesday or Saturday
+        const yyyy = year;
+        const mm = String(month + 1).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        matchingDates.push(`${yyyy}-${mm}-${dd}`);
+      }
+    }
+
+    const allSelected = matchingDates.every(d => selectedWfhDates.includes(d));
+    if (allSelected) {
+      setSelectedWfhDates(prev => prev.filter(d => !matchingDates.includes(d)));
+    } else {
+      setSelectedWfhDates(prev => Array.from(new Set([...prev, ...matchingDates])).sort());
+    }
+  };
+
+  const handleBulkSubmitCalendarWfhDays = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedWfhDates.length === 0) {
+      toast.error('Please select at least one date on the calendar');
+      return;
+    }
+    setSubmittingBulkWfh(true);
+    try {
+      const items = selectedWfhDates.map(date => ({
+        date,
+        title: bulkCustomTitle || 'Company-Wide Work From Home',
+        description: bulkCustomDesc || 'Scheduled company WFH day',
+      }));
+      const res = await api.post('/admin/wfh-days/bulk', { items });
+      toast.success(res.data.message || `Successfully scheduled ${items.length} WFH days!`);
+      if (Array.isArray(res.data.wfhDays)) {
+        setWfhDaysList(res.data.wfhDays);
+      } else {
+        await fetchWfhDays();
+      }
+      setSelectedWfhDates([]);
+      setBulkWfhModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to add bulk WFH days');
+    } finally {
+      setSubmittingBulkWfh(false);
+    }
+  };
+
+  const handleBulkAddWfhDays = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingBulkWfh(true);
+    try {
+      const res = await api.post('/admin/wfh-days/bulk', {
+        year: bulkWfhYear,
+        rule: bulkWfhRule,
+      });
+      toast.success(res.data.message || 'Bulk WFH days added successfully!');
+      if (Array.isArray(res.data.wfhDays)) {
+        setWfhDaysList(res.data.wfhDays);
+      } else {
+        await fetchWfhDays();
+      }
+      setBulkWfhModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to add bulk WFH days');
+    } finally {
+      setSubmittingBulkWfh(false);
+    }
+  };
 
   const handleBulkAddHolidays = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,6 +437,9 @@ const AdminSettings = () => {
         officeEndTime: res.data.officeEndTime || '18:00',
         graceMinutes: res.data.graceMinutes ?? 15,
         workWeekPattern: res.data.workWeekPattern || '6_DAYS',
+        departments: Array.isArray(res.data.departments) && res.data.departments.length > 0 
+          ? res.data.departments 
+          : DEFAULT_DEPARTMENTS,
         officeLocation: {
           latitude: res.data.officeLocation?.latitude ?? 13.0827,
           longitude: res.data.officeLocation?.longitude ?? 80.2707,
@@ -230,6 +452,36 @@ const AdminSettings = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAddDepartment = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = newDepartmentInput.trim();
+    if (!trimmed) {
+      toast.error('Please enter department name');
+      return;
+    }
+    const currentDepts = settings.departments || DEFAULT_DEPARTMENTS;
+    const exists = currentDepts.some(d => d.toLowerCase() === trimmed.toLowerCase());
+    if (exists) {
+      toast.error(`Department "${trimmed}" already exists`);
+      return;
+    }
+    const updatedDepts = [...currentDepts, trimmed];
+    setSettings((prev) => ({ ...prev, departments: updatedDepts }));
+    setNewDepartmentInput('');
+    toast.success(`Department "${trimmed}" added! Click Save to apply.`);
+  };
+
+  const handleDeleteDepartment = (deptToRemove: string) => {
+    const currentDepts = settings.departments || DEFAULT_DEPARTMENTS;
+    if (currentDepts.length <= 1) {
+      toast.error('At least one department must remain configured');
+      return;
+    }
+    const updatedDepts = currentDepts.filter(d => d !== deptToRemove);
+    setSettings((prev) => ({ ...prev, departments: updatedDepts }));
+    toast.success(`Department "${deptToRemove}" removed`);
   };
 
   const handleDetectLocation = () => {
@@ -279,6 +531,44 @@ const AdminSettings = () => {
   const simPfEmployer = sampleBasic * settings.pfEmployerRate;
   const simEsiEmployee = sampleSalary <= 21000 ? sampleSalary * settings.esiEmployeeRate : 0;
   const simEsiEmployer = sampleSalary <= 21000 ? sampleSalary * settings.esiEmployerRate : 0;
+
+  // Existing scheduled WFH dates set
+  const scheduledWfhDatesSet = new Set(wfhDaysList.map((w) => w.date));
+
+  // Calendar calculations for WFH bulk modal
+  const wfhYear = wfhCalendarMonth.getFullYear();
+  const wfhMonth = wfhCalendarMonth.getMonth();
+  const wfhFirstDayOfMonth = new Date(wfhYear, wfhMonth, 1);
+  const wfhLastDayOfMonth = new Date(wfhYear, wfhMonth + 1, 0);
+  const wfhDaysInMonth = wfhLastDayOfMonth.getDate();
+  const wfhStartingDay = (wfhFirstDayOfMonth.getDay() + 6) % 7; // 0=Mon, 6=Sun
+
+  const calendarDays: Array<{
+    dayNum: number;
+    dateStr: string;
+    dayOfWeek: number;
+    isScheduled: boolean;
+    isSelected: boolean;
+  } | null> = [];
+
+  for (let i = 0; i < wfhStartingDay; i++) {
+    calendarDays.push(null);
+  }
+
+  for (let day = 1; day <= wfhDaysInMonth; day++) {
+    const yyyy = wfhYear;
+    const mm = String(wfhMonth + 1).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+    const d = new Date(wfhYear, wfhMonth, day);
+    calendarDays.push({
+      dayNum: day,
+      dateStr,
+      dayOfWeek: d.getDay(),
+      isScheduled: scheduledWfhDatesSet.has(dateStr),
+      isSelected: selectedWfhDates.includes(dateStr),
+    });
+  }
 
   if (loading) {
     return (
@@ -944,6 +1234,88 @@ const AdminSettings = () => {
           </div>
         </div>
 
+        {/* Section: Department Management */}
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-8 space-y-6 hover:shadow-card-hover transition-all">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold shadow-xs">
+                <Briefcase className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  Department Management
+                  <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200/80">
+                    {(settings.departments || DEFAULT_DEPARTMENTS).length} Active
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Manage business units & departments available when registering and profiling employees.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Add Department Input */}
+          <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-3">
+            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
+              <Plus className="w-4 h-4 text-teal-600" />
+              Add New Department
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2.5">
+              <input
+                type="text"
+                value={newDepartmentInput}
+                onChange={(e) => setNewDepartmentInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddDepartment();
+                  }
+                }}
+                placeholder="e.g. DST, TECH, HR, OGB, KOB, Accounts, Finance, Compliance, Operations..."
+                className="flex-1 px-3.5 py-2.5 text-xs bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-800 font-medium"
+              />
+              <button
+                type="button"
+                onClick={() => handleAddDepartment()}
+                className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95 shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Department</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Department Chips Cloud */}
+          <div className="space-y-2.5">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Configured Departments List
+            </label>
+            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+              {(settings.departments || DEFAULT_DEPARTMENTS).map((dept) => (
+                <div
+                  key={dept}
+                  className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold hover:border-teal-300 hover:bg-teal-50/50 transition-all shadow-2xs"
+                >
+                  <span className="w-2 h-2 rounded-full bg-teal-600"></span>
+                  <span>{dept}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDepartment(dept)}
+                    className="ml-1 p-0.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                    title={`Remove ${dept}`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-400 pt-1">
+              Changes to departments will be saved when you submit the settings form below.
+            </p>
+          </div>
+        </div>
+
         {/* Action Controls */}
         <div className="flex items-center justify-end gap-3 pt-4">
           <button
@@ -965,6 +1337,173 @@ const AdminSettings = () => {
           </button>
         </div>
       </form>
+
+      {/* Section: Company-Wide Work From Home (WFH) Schedule */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-card space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold shadow-xs">
+              <Home className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                Company-Wide Work From Home (WFH) Schedule
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200/80">
+                  Remote Policy
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500">
+                Declare specific dates when all employees work remotely (e.g. Wednesday & Saturday WFH). Office GPS geofencing is automatically waived on these dates.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setBulkWfhModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Bulk Add Recurring WFH</span>
+            </button>
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+              {wfhDaysList.length} {wfhDaysList.length === 1 ? 'Day' : 'Days'} Scheduled
+            </span>
+          </div>
+        </div>
+
+        {/* Add WFH Day Form */}
+        <form onSubmit={handleAddWfhDay} className="bg-slate-50/80 rounded-2xl p-5 border border-slate-200/80 space-y-4">
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <Plus className="w-3.5 h-3.5 text-indigo-600" />
+            Add Specific Company WFH Date
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Select Date <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="date"
+                required
+                value={wfhDayForm.date}
+                onChange={(e) => setWfhDayForm({ ...wfhDayForm, date: e.target.value })}
+                className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                WFH Title / Label
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Wednesday Team WFH, Saturday Remote"
+                value={wfhDayForm.title}
+                onChange={(e) => setWfhDayForm({ ...wfhDayForm, title: e.target.value })}
+                className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Optional Notes / Remarks</label>
+              <input
+                type="text"
+                placeholder="e.g. Office maintenance / Routine remote day"
+                value={wfhDayForm.description}
+                onChange={(e) => setWfhDayForm({ ...wfhDayForm, description: e.target.value })}
+                className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="submit"
+              disabled={submittingWfhDay}
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-60"
+            >
+              {submittingWfhDay ? (
+                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Plus className="w-3.5 h-3.5" />
+              )}
+              <span>Add WFH Day</span>
+            </button>
+          </div>
+        </form>
+
+        {/* WFH Days List */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+            Scheduled Company WFH Dates ({wfhDaysList.length})
+          </h3>
+
+          {loadingWfhDays ? (
+            <div className="py-8 text-center text-slate-400 text-xs">
+              <div className="w-6 h-6 border-2 border-indigo-500/20 border-t-indigo-600 rounded-full animate-spin mx-auto mb-2" />
+              Loading scheduled WFH days...
+            </div>
+          ) : wfhDaysList.length === 0 ? (
+            <div className="py-8 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400">
+              No company-wide WFH days added yet. Use the form above to declare remote days for specific dates or bulk generate weekly recurring WFH days (e.g. Wednesdays & Saturdays).
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-slate-200/80 rounded-2xl max-h-96 overflow-y-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
+                  <tr>
+                    <th className="px-4 py-3">Scheduled Date</th>
+                    <th className="px-4 py-3">Day of Week</th>
+                    <th className="px-4 py-3">Title / Reason</th>
+                    <th className="px-4 py-3">Notes</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {wfhDaysList.map((w) => {
+                    const dateObj = new Date(w.date + 'T00:00:00');
+                    const formattedDate = dateObj.toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                    return (
+                      <tr key={w._id || w.date} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3.5 font-mono font-bold text-slate-900">{formattedDate}</td>
+                        <td className="px-4 py-3.5">
+                          <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full border ${
+                            dayName === 'Wednesday' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                            dayName === 'Saturday' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            dayName === 'Friday' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}>
+                            🏢+🏠 {dayName}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 font-bold text-slate-800">{w.title}</td>
+                        <td className="px-4 py-3.5 text-slate-500">{w.description || 'Entire company works remotely'}</td>
+                        <td className="px-4 py-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteWfhDay(w._id || w.date)}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Delete WFH day"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Section: Company Holidays Management */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-card space-y-6">
@@ -1139,6 +1678,407 @@ const AdminSettings = () => {
           )}
         </div>
       </div>
+
+      {/* Bulk Add WFH Modal with Interactive Calendar Selection */}
+      {bulkWfhModalOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 sm:p-7 border border-slate-100 animate-slide-up space-y-5 my-8 max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold">
+                  <Home className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Bulk Generate WFH Days</h3>
+                  <p className="text-xs text-slate-500">Select multiple days on the interactive calendar or auto-generate recurring rules</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBulkWfhModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Mode Switcher Tabs */}
+            <div className="flex rounded-2xl bg-slate-100 p-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setBulkWfhTab('CALENDAR')}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                  bulkWfhTab === 'CALENDAR'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Select Days on Calendar</span>
+                {selectedWfhDates.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold animate-pulse">
+                    {selectedWfhDates.length} selected
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkWfhTab('RULES')}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                  bulkWfhTab === 'RULES'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Auto-Generate Yearly Rules</span>
+              </button>
+            </div>
+
+            {/* Tab 1: Interactive Multi-Date Calendar Selection */}
+            {bulkWfhTab === 'CALENDAR' && (
+              <form onSubmit={handleBulkSubmitCalendarWfhDays} className="space-y-4 overflow-y-auto pr-1 flex-1">
+                {/* Calendar Month Navigation & Quick Filters */}
+                <div className="bg-slate-50/90 rounded-2xl p-4 border border-slate-200/80 space-y-3.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handlePrevWfhMonth}
+                        className="p-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors shadow-2xs"
+                        title="Previous Month"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <h4 className="text-xs font-bold text-slate-900 min-w-[140px] text-center">
+                        {wfhCalendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={handleNextWfhMonth}
+                        className="p-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors shadow-2xs"
+                        title="Next Month"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Quick Month Selectors */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleQuickSelectWedAndSat}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-indigo-100/80 hover:bg-indigo-200 text-indigo-800 transition-colors shadow-2xs"
+                      >
+                        + All Wed & Sat
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickSelectDayOfWeek(3)}
+                        className="px-2 py-1 text-[11px] font-semibold rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors shadow-2xs"
+                      >
+                        Wednesdays
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickSelectDayOfWeek(6)}
+                        className="px-2 py-1 text-[11px] font-semibold rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors shadow-2xs"
+                      >
+                        Saturdays
+                      </button>
+                      {selectedWfhDates.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedWfhDates([])}
+                          className="px-2 py-1 text-[11px] font-semibold rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Calendar Grid */}
+                  <div className="grid grid-cols-7 gap-1.5 text-center">
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, idx) => (
+                      <div
+                        key={dayName}
+                        className={`text-[11px] font-bold py-1 uppercase tracking-wider ${
+                          idx === 2 || idx === 5 ? 'text-indigo-600' : 'text-slate-400'
+                        }`}
+                      >
+                        {dayName}
+                      </div>
+                    ))}
+
+                    {calendarDays.map((cell, idx) => {
+                      if (!cell) {
+                        return <div key={`empty-${idx}`} className="h-11 rounded-xl bg-transparent" />;
+                      }
+
+                      const isWedOrSat = cell.dayOfWeek === 3 || cell.dayOfWeek === 6;
+
+                      return (
+                        <button
+                          key={cell.dateStr}
+                          type="button"
+                          onClick={() => handleToggleCalendarDate(cell.dateStr)}
+                          className={`h-11 rounded-xl flex flex-col items-center justify-center relative transition-all border text-xs font-semibold select-none ${
+                            cell.isSelected
+                              ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm ring-2 ring-indigo-400/40 transform scale-[0.98]'
+                              : cell.isScheduled
+                              ? 'bg-indigo-50/80 border-indigo-200 text-indigo-900 hover:bg-indigo-100'
+                              : isWedOrSat
+                              ? 'bg-white border-indigo-100 text-indigo-950 hover:border-indigo-300 hover:bg-indigo-50/30'
+                              : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-0.5">
+                            <span>{cell.dayNum}</span>
+                            {cell.isSelected && <Check className="w-3 h-3 text-white stroke-[3]" />}
+                          </div>
+                          {cell.isScheduled && !cell.isSelected && (
+                            <span className="text-[9px] font-bold text-indigo-600 leading-none">WFH</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Selected Dates Summary Tray */}
+                <div className="bg-slate-50/60 rounded-2xl p-3 border border-slate-200/70 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                      {selectedWfhDates.length} {selectedWfhDates.length === 1 ? 'Date' : 'Dates'} Selected on Calendar:
+                    </span>
+                    {selectedWfhDates.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedWfhDates([])}
+                        className="text-[11px] text-rose-600 hover:underline font-semibold"
+                      >
+                        Clear selection
+                      </button>
+                    )}
+                  </div>
+
+                  {selectedWfhDates.length === 0 ? (
+                    <p className="text-[11px] text-slate-400 italic">
+                      Click any days on the calendar above or use "+ All Wed & Sat" to select company WFH dates.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                      {selectedWfhDates.map((dateStr) => {
+                        const dateObj = new Date(dateStr + 'T00:00:00');
+                        const label = dateObj.toLocaleDateString('en-US', {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        });
+                        return (
+                          <span
+                            key={dateStr}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-100 text-indigo-800 text-[11px] font-semibold border border-indigo-200"
+                          >
+                            <span>{label}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleCalendarDate(dateStr);
+                              }}
+                              className="hover:text-indigo-950 p-0.5 rounded"
+                              title="Remove date"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Custom Details for the Selected Batch */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      WFH Title / Label
+                    </label>
+                    <input
+                      type="text"
+                      value={bulkCustomTitle}
+                      onChange={(e) => setBulkCustomTitle(e.target.value)}
+                      placeholder="e.g. Wednesday Team WFH"
+                      className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Notes / Remarks (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={bulkCustomDesc}
+                      onChange={(e) => setBulkCustomDesc(e.target.value)}
+                      placeholder="e.g. Remote work policy"
+                      className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Submit Actions */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setBulkWfhModalOpen(false)}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingBulkWfh || selectedWfhDates.length === 0}
+                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    {submittingBulkWfh ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Plus className="w-3.5 h-3.5" />
+                    )}
+                    <span>
+                      Add {selectedWfhDates.length} Selected {selectedWfhDates.length === 1 ? 'WFH Day' : 'WFH Days'}
+                    </span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Tab 2: Automated Yearly Rules */}
+            {bulkWfhTab === 'RULES' && (
+              <form onSubmit={handleBulkAddWfhDays} className="space-y-4 overflow-y-auto pr-1 flex-1">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Target Year</label>
+                  <select
+                    value={bulkWfhYear}
+                    onChange={(e) => setBulkWfhYear(parseInt(e.target.value))}
+                    className="w-full px-3.5 py-2.5 text-xs font-semibold bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  >
+                    <option value={2025}>2025</option>
+                    <option value={2026}>2026 (Current Year)</option>
+                    <option value={2027}>2027</option>
+                    <option value={2028}>2028</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Recurring WFH Rule</label>
+                  <div className="space-y-2">
+                    <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                      bulkWfhRule === 'WEDNESDAYS_AND_SATURDAYS' ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 font-semibold' : 'bg-slate-50/50 border-slate-200 text-slate-700'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="bulkWfhRule"
+                        value="WEDNESDAYS_AND_SATURDAYS"
+                        checked={bulkWfhRule === 'WEDNESDAYS_AND_SATURDAYS'}
+                        onChange={() => setBulkWfhRule('WEDNESDAYS_AND_SATURDAYS')}
+                        className="text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="text-xs">
+                        <p className="font-bold">Every Wednesday & Saturday (104 Days)</p>
+                        <p className="text-[11px] text-slate-500">Marks all Wednesdays and Saturdays of {bulkWfhYear} as Company Remote WFH</p>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                      bulkWfhRule === 'WEDNESDAYS' ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 font-semibold' : 'bg-slate-50/50 border-slate-200 text-slate-700'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="bulkWfhRule"
+                        value="WEDNESDAYS"
+                        checked={bulkWfhRule === 'WEDNESDAYS'}
+                        onChange={() => setBulkWfhRule('WEDNESDAYS')}
+                        className="text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="text-xs">
+                        <p className="font-bold">Every Wednesday (52 Days)</p>
+                        <p className="text-[11px] text-slate-500">Marks all Wednesdays of {bulkWfhYear} as Company Remote WFH</p>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                      bulkWfhRule === 'SATURDAYS' ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 font-semibold' : 'bg-slate-50/50 border-slate-200 text-slate-700'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="bulkWfhRule"
+                        value="SATURDAYS"
+                        checked={bulkWfhRule === 'SATURDAYS'}
+                        onChange={() => setBulkWfhRule('SATURDAYS')}
+                        className="text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="text-xs">
+                        <p className="font-bold">Every Saturday (52 Days)</p>
+                        <p className="text-[11px] text-slate-500">Marks all Saturdays of {bulkWfhYear} as Company Remote WFH</p>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                      bulkWfhRule === 'FRIDAYS' ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 font-semibold' : 'bg-slate-50/50 border-slate-200 text-slate-700'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="bulkWfhRule"
+                        value="FRIDAYS"
+                        checked={bulkWfhRule === 'FRIDAYS'}
+                        onChange={() => setBulkWfhRule('FRIDAYS')}
+                        className="text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="text-xs">
+                        <p className="font-bold">Every Friday (52 Days)</p>
+                        <p className="text-[11px] text-slate-500">Marks all Fridays of {bulkWfhYear} as Friday Remote WFH</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-200/70 flex items-start gap-2 text-xs text-indigo-900">
+                  <AlertCircle className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <span>Existing scheduled dates will not be duplicated. Only new dates will be created.</span>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setBulkWfhModalOpen(false)}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingBulkWfh}
+                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-60"
+                  >
+                    {submittingBulkWfh ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    <span>Generate WFH Schedule</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Bulk Add Holidays Modal */}
       {bulkModalOpen && createPortal(

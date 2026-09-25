@@ -6,23 +6,34 @@ import AttendanceCard from '../../components/attendance/AttendanceCard';
 import AttendanceTimeline from '../../components/attendance/AttendanceTimeline';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
-import { Clock4, CalendarDays, IndianRupee, Sparkles, Activity, Building2, Home, Palmtree, UserCheck } from 'lucide-react';
+import { Clock4, CalendarDays, Sparkles, Activity, Building2, Home, Palmtree, UserCheck } from 'lucide-react';
 
 const EmployeeDashboard = () => {
   const { user } = useAuth();
   const [attendance, setAttendance] = useState<any>(null);
   const [holidays, setHolidays] = useState<any[]>([]);
   const [leaveSummary, setLeaveSummary] = useState({ totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 });
+  const [isCompanyWfhDay, setIsCompanyWfhDay] = useState(false);
+  const [todayWfhInfo, setTodayWfhInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
     try {
-      const [attData, holidayRes, leaveRes] = await Promise.all([
-        getTodayAttendance(),
+      const [todayStatusRes, holidayRes, leaveRes] = await Promise.all([
+        api.get('/attendance/today-status').catch(() => null),
         api.get('/attendance/holidays').catch(() => ({ data: [] })),
         api.get('/attendance/leave-summary').catch(() => ({ data: { totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 } })),
       ]);
-      setAttendance(attData);
+
+      if (todayStatusRes?.data) {
+        setAttendance(todayStatusRes.data.attendance);
+        setIsCompanyWfhDay(Boolean(todayStatusRes.data.isCompanyWfhDay));
+        setTodayWfhInfo(todayStatusRes.data.companyWfhDay || null);
+      } else {
+        const fallbackAtt = await getTodayAttendance().catch(() => null);
+        setAttendance(fallbackAtt);
+      }
+
       setHolidays(Array.isArray(holidayRes.data) ? holidayRes.data : (holidayRes.data?.holidays || []));
       setLeaveSummary(leaveRes.data || { totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 });
     } catch (error) {
@@ -48,7 +59,7 @@ const EmployeeDashboard = () => {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const todayStr = format(new Date(), 'EEEE, d MMMM yyyy');
-  const workMode = attendance?.workMode || user?.workMode || 'WFO';
+  const workMode = isCompanyWfhDay ? 'WFH' : (attendance?.workMode || user?.workMode || 'WFO');
 
   return (
     <div className="space-y-6">
@@ -70,6 +81,11 @@ const EmployeeDashboard = () => {
                   <>
                     <span className="text-xs">⚡</span>
                     <span className="text-amber-200">SSC Holiday Shift</span>
+                  </>
+                ) : isCompanyWfhDay ? (
+                  <>
+                    <Home className="w-3.5 h-3.5 text-indigo-300" />
+                    <span className="text-indigo-200">Company WFH Day</span>
                   </>
                 ) : workMode === 'WFH' ? (
                   <>
@@ -113,20 +129,44 @@ const EmployeeDashboard = () => {
                 </>
               )}
             </Link>
-            <Link
-              to="/employee/salary"
-              className="inline-flex items-center justify-center bg-white/10 hover:bg-white/20 active:scale-[0.98] border border-white/20 text-white px-3.5 py-2 rounded-xl font-semibold text-xs transition-all backdrop-blur-md"
-            >
-              <IndianRupee className="w-3.5 h-3.5 mr-1 text-teal-300" /> View Salary / Pay
-            </Link>
           </div>
         </div>
       </div>
 
+      {/* Special Notice Banner: Company-Wide WFH Day */}
+      {isCompanyWfhDay && (
+        <div className="bg-gradient-to-r from-indigo-950 via-indigo-900 to-purple-950 rounded-3xl p-5 text-white border border-indigo-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl relative overflow-hidden animate-fade-in">
+          <div className="absolute right-0 top-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="flex items-center gap-3.5 relative z-10">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/25 border border-indigo-400/40 flex items-center justify-center text-xl shrink-0 shadow-inner">
+              🏡
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                <h3 className="text-sm font-extrabold text-white tracking-wide">
+                  {todayWfhInfo?.title || 'Company-Wide Work From Home (Remote Day)'}
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-400/20 border border-indigo-300/40 text-indigo-200 uppercase tracking-wider">
+                  ⚡ Remote Authorized
+                </span>
+              </div>
+              <p className="text-xs text-indigo-100/90 leading-snug">
+                Today is scheduled as an official remote day for all employees. Office GPS geofence checks are waived for your sign-in today!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Grid: Cockpit + Timeline */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <AttendanceCard attendance={attendance} onRefresh={fetchDashboardData} />
+          <AttendanceCard 
+            attendance={attendance} 
+            onRefresh={fetchDashboardData}
+            isCompanyWfhDay={isCompanyWfhDay}
+            companyWfhInfo={todayWfhInfo}
+          />
         </div>
         
         <div className="lg:col-span-1">

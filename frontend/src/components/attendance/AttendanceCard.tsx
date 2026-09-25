@@ -10,9 +10,16 @@ import toast from 'react-hot-toast';
 interface AttendanceCardProps {
   attendance: any;
   onRefresh: () => void;
+  isCompanyWfhDay?: boolean;
+  companyWfhInfo?: any;
 }
 
-const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }) => {
+const AttendanceCard: React.FC<AttendanceCardProps> = ({ 
+  attendance, 
+  onRefresh, 
+  isCompanyWfhDay, 
+  companyWfhInfo 
+}) => {
   const { user } = useAuth();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +40,8 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
   const [customSignOutTime, setCustomSignOutTime] = useState('18:30');
 
   const status = attendance?.status || 'NOT_CHECKED_IN';
-  const workMode = attendance?.workMode || user?.workMode || 'WFO';
+  const isCompanyRemote = Boolean(isCompanyWfhDay || attendance?.isCompanyWfhDay);
+  const workMode = isCompanyRemote ? 'WFH' : (attendance?.workMode || user?.workMode || 'WFO');
   
   const getCoordinates = (): Promise<{ latitude: number; longitude: number } | null> => {
     return new Promise((resolve) => {
@@ -216,7 +224,12 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
           <p className="text-xs text-slate-500 mt-0.5">Live work timer and attendance state management</p>
         </div>
         <div className="flex items-center gap-2">
-          {workMode === 'HYBRID' ? (
+          {isCompanyRemote ? (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs">
+              <Home className="w-3 h-3 mr-1 text-indigo-600" />
+              Company WFH Day
+            </span>
+          ) : workMode === 'HYBRID' ? (
             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
               <span className="mr-1 text-xs">🏢+🏠</span>
               Hybrid Flex
@@ -251,7 +264,9 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({ attendance, onRefresh }
           </div>
           <h3 className="text-base font-bold text-slate-900 mb-1">Ready to start your day?</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mb-6">
-            {workMode === 'WFO' 
+            {isCompanyRemote
+              ? 'Today is a declared Company-Wide Work From Home day! You can sign in remotely from anywhere.'
+              : workMode === 'WFO' 
               ? 'Click below to verify your GPS location at the office and begin tracking your active work hours.'
               : workMode === 'HYBRID'
               ? 'Click below to sign in from anywhere (office or home) and begin tracking your active work hours.'

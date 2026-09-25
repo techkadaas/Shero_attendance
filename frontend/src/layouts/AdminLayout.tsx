@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Users, CalendarDays, IndianRupee, Menu, X, Settings, Clock4, ShieldCheck } from 'lucide-react';
+import { LogOut, Users, CalendarDays, Menu, X, Settings, Clock4, ShieldCheck } from 'lucide-react';
 import { AttendanceReminderAndPWA } from '../components/common/AttendanceReminderAndPWA';
 
 const AdminLayout = () => {
@@ -21,7 +21,6 @@ const AdminLayout = () => {
     { name: 'Dashboard', path: '/admin', icon: CalendarDays },
     { name: 'Employees', path: '/admin/employees', icon: Users },
     { name: 'Permissions', path: '/admin/permissions', icon: Clock4 },
-    { name: 'Payroll', path: '/admin/payroll', icon: IndianRupee },
     { name: 'Settings', path: '/admin/settings', icon: Settings },
   ];
 

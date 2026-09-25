@@ -79,6 +79,10 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       }
     }
 
+    if (requestType === 'WEEK_OFF' && !employee.isSsc && employee.workMode !== 'SSC') {
+      return res.status(400).json({ error: 'Week Off requests are only available for SSC shift employees' });
+    }
+
     const type = requestType === 'WFH' ? 'WFH' : (requestType === 'LEAVE' ? 'LEAVE' : (requestType === 'WEEK_OFF' ? 'WEEK_OFF' : 'PERMISSION'));
 
     const newPermission = {

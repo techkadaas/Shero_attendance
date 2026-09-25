@@ -2,25 +2,73 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, CalendarDays, Clock, IndianRupee, Clock4, UserCheck } from 'lucide-react';
+import { LogOut, CalendarDays, Clock, Clock4, KeyRound, Eye, EyeOff, X, Lock } from 'lucide-react';
 import { AttendanceReminderAndPWA } from '../components/common/AttendanceReminderAndPWA';
+import api from '../services/api';
+import toast from 'react-hot-toast';
 
 const EmployeeLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  
+  // Update Password State
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword.trim()) {
+      toast.error('Please enter your current password');
+      return;
+    }
+    if (!newPassword.trim()) {
+      toast.error('Please enter your new password');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters long');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    try {
+      setUpdatingPassword(true);
+      const res = await api.put('/auth/change-password', {
+        currentPassword,
+        newPassword,
+      });
+      toast.success(res.data.message || 'Password updated successfully!');
+      setPasswordModalOpen(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to update password');
+    } finally {
+      setUpdatingPassword(false);
+    }
+  };
+
   const navItems = [
     { name: 'Attendance', path: '/employee', icon: Clock },
     { name: 'History', path: '/employee/attendance', icon: CalendarDays },
     { name: 'Permissions', path: '/employee/permissions', icon: Clock4 },
-    { name: 'Salary', path: '/employee/salary', icon: IndianRupee },
   ];
 
   return (
@@ -79,9 +127,13 @@ const EmployeeLayout = () => {
               </nav>
             </div>
 
-            {/* Profile Info & Logout */}
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center pl-3 pr-2 py-1.5 rounded-xl bg-slate-50 border border-slate-200/60 text-xs">
+            {/* Profile Info, Change Password & Logout */}
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div 
+                onClick={() => setPasswordModalOpen(true)}
+                className="flex items-center pl-3 pr-2 py-1.5 rounded-xl bg-slate-50 border border-slate-200/60 text-xs cursor-pointer hover:bg-teal-50/50 hover:border-teal-200 transition-colors"
+                title="Click to update password"
+              >
                 <div className="w-6 h-6 rounded-lg bg-teal-100 text-teal-800 font-bold flex items-center justify-center mr-2 text-[11px]">
                   {user?.name ? user.name.charAt(0).toUpperCase() : 'E'}
                 </div>
@@ -91,9 +143,21 @@ const EmployeeLayout = () => {
                 </div>
               </div>
 
+              {/* Update Password Button */}
+              <button
+                type="button"
+                onClick={() => setPasswordModalOpen(true)}
+                className="p-2 text-slate-500 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition-all border border-slate-200/60 hover:border-teal-200 flex items-center gap-1.5 shadow-2xs"
+                title="Change Password"
+              >
+                <KeyRound className="h-4 w-4 text-teal-600" />
+                <span className="hidden sm:inline text-xs font-semibold text-slate-700">Password</span>
+              </button>
+
+              {/* Logout Button */}
               <button
                 onClick={() => setLogoutModalOpen(true)}
-                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100"
+                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-200/60 hover:border-rose-100 shadow-2xs"
                 title="Sign out"
               >
                 <LogOut className="h-4 w-4" />
@@ -129,8 +193,143 @@ const EmployeeLayout = () => {
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setPasswordModalOpen(true)}
+            className="flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[10px] font-semibold transition-all text-slate-500 hover:text-slate-800"
+          >
+            <KeyRound className="w-5 h-5 mb-0.5 text-slate-400" />
+            <span>Password</span>
+          </button>
         </div>
       </div>
+
+      {/* Update Password Modal */}
+      {passwordModalOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-slate-100 animate-slide-up flex flex-col my-auto overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center font-bold">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Update Password</h3>
+                  <p className="text-[11px] text-slate-500">Change your portal login credentials</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPasswordModalOpen(false);
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handlePasswordSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPass ? 'text' : 'password'}
+                    required
+                    placeholder="Enter your current password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="form-input text-xs pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPass(!showCurrentPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showCurrentPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    required
+                    placeholder="At least 6 characters"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="form-input text-xs pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPass ? 'text' : 'password'}
+                    required
+                    placeholder="Re-enter your new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="form-input text-xs pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPass(!showConfirmPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showConfirmPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPasswordModalOpen(false);
+                    setCurrentPassword('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                  }}
+                  className="btn-secondary px-4 py-2 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingPassword}
+                  className="btn-primary px-5 py-2 text-xs font-bold shadow-glow-teal disabled:opacity-50"
+                >
+                  {updatingPassword ? 'Updating...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Logout Confirmation Modal */}
       {logoutModalOpen && createPortal(

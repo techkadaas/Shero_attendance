@@ -46,6 +46,7 @@ router.post('/login', async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
         employeeId: user.employeeId,
+        department: user.department || '',
         workMode,
         isSsc: Boolean(user.isSsc),
       },
@@ -93,6 +94,7 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => 
       email: user.email,
       role: user.role,
       employeeId: user.employeeId,
+      department: user.department || '',
       status: user.status,
       workMode: user.workMode || 'WFO',
       isSsc: Boolean(user.isSsc),
@@ -101,6 +103,45 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to get profile' });
+  }
+});
+
+router.put('/change-password', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Access denied' });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    if (String(newPassword).trim().length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+    }
+
+    const user = await users().findOne({ _id: new ObjectId(userId) });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Incorrect current password. Please try again.' });
+    }
+
+    const passwordHash = await bcrypt.hash(String(newPassword).trim(), 10);
+    await users().updateOne(
+      { _id: new ObjectId(userId) },
+      { $set: { passwordHash, updatedAt: new Date() } }
+    );
+
+    res.json({ message: 'Password updated successfully!' });
+  } catch (error) {
+    console.error('Failed to change password:', error);
+    res.status(500).json({ error: 'Failed to update password' });
   }
 });
 

@@ -10,11 +10,8 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminEmployees from './pages/admin/AdminEmployees';
 import AdminEmployeeDetail from './pages/admin/AdminEmployeeDetail';
 import AdminEmployeeAttendance from './pages/admin/AdminEmployeeAttendance';
-import AdminPayroll from './pages/admin/AdminPayroll';
-import AdminEmployeePayrollDetail from './pages/admin/AdminEmployeePayrollDetail';
 import AdminSettings from './pages/admin/AdminSettings';
 import AttendanceHistory from './pages/employee/AttendanceHistory';
-import EmployeeSalary from './pages/employee/EmployeeSalary';
 import EmployeePermissions from './pages/employee/EmployeePermissions';
 import AdminPermissions from './pages/admin/AdminPermissions';
 import { Toaster } from 'react-hot-toast';
@@ -53,7 +50,6 @@ const App = () => {
             <Route index element={<EmployeeDashboard />} />
             <Route path="attendance" element={<AttendanceHistory />} />
             <Route path="permissions" element={<EmployeePermissions />} />
-            <Route path="salary" element={<EmployeeSalary />} />
           </Route>
 
           <Route path="/admin" element={
@@ -66,8 +62,6 @@ const App = () => {
             <Route path="employees/:id" element={<AdminEmployeeDetail />} />
             <Route path="employees/:id/attendance" element={<AdminEmployeeAttendance />} />
             <Route path="permissions" element={<AdminPermissions />} />
-            <Route path="payroll" element={<AdminPayroll />} />
-            <Route path="payroll/:id" element={<AdminEmployeePayrollDetail />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
           
