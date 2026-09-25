@@ -544,68 +544,6 @@ export const AdminEmployeeDetail = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Compensation & Salary */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  3. Compensation & Salary Setup
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Gross Salary (₹/Mo)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="e.g. 25000"
-                      value={editForm.grossSalary}
-                      onChange={(e) => setEditForm({ ...editForm, grossSalary: e.target.value })}
-                      className="form-input font-mono text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Basic Salary (₹/Mo)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="e.g. 15000"
-                      value={editForm.basicSalary}
-                      onChange={(e) => setEditForm({ ...editForm, basicSalary: e.target.value })}
-                      className="form-input font-mono text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Other Deductions (₹)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={editForm.otherDeductions}
-                      onChange={(e) => setEditForm({ ...editForm, otherDeductions: e.target.value })}
-                      className="form-input font-mono text-xs"
-                    />
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-4">
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={editForm.pfApplicable}
-                      onChange={(e) => setEditForm({ ...editForm, pfApplicable: e.target.checked })}
-                      className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer"
-                    />
-                    <span>PF Applicable (12%)</span>
-                  </label>
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={editForm.esiApplicable}
-                      onChange={(e) => setEditForm({ ...editForm, esiApplicable: e.target.checked })}
-                      className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer"
-                    />
-                    <span>ESI Applicable (0.75%)</span>
-                  </label>
-                </div>
-              </div>
             </form>
 
             {/* Modal Footer */}

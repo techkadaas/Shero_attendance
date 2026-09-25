@@ -874,73 +874,6 @@ const AdminEmployees = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Section 4: Compensation & Salary Setup */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  4. Compensation & Salary Setup
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Gross Salary (₹/Mo)</label>
-                    <input
-                      name="grossSalary"
-                      type="number"
-                      min="0"
-                      placeholder="e.g. 25000"
-                      value={form.grossSalary}
-                      onChange={handleChange}
-                      className="form-input font-mono text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Basic Salary (₹/Mo)</label>
-                    <input
-                      name="basicSalary"
-                      type="number"
-                      min="0"
-                      placeholder="e.g. 15000"
-                      value={form.basicSalary}
-                      onChange={handleChange}
-                      className="form-input font-mono text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Other Deductions (₹)</label>
-                    <input
-                      name="otherDeductions"
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={form.otherDeductions}
-                      onChange={handleChange}
-                      className="form-input font-mono text-xs"
-                    />
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-4">
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="pfApplicable"
-                      checked={form.pfApplicable}
-                      onChange={handleChange}
-                      className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer"
-                    />
-                    <span>PF Applicable (12%)</span>
-                  </label>
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="esiApplicable"
-                      checked={form.esiApplicable}
-                      onChange={handleChange}
-                      className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer"
-                    />
-                    <span>ESI Applicable (0.75%)</span>
-                  </label>
-                </div>
-              </div>
             </form>
 
             {/* Modal Footer Controls - Sticky at bottom */}
@@ -977,7 +910,7 @@ const AdminEmployees = () => {
                 </div>
                 <div>
                   <h2 className="text-sm font-extrabold text-slate-900">Edit Staff Profile</h2>
-                  <p className="text-[11px] text-slate-500">Switch work mode policy, credentials & compensation</p>
+                  <p className="text-[11px] text-slate-500">Switch work mode policy, ID & credentials</p>
                 </div>
               </div>
               <button
@@ -1161,73 +1094,6 @@ const AdminEmployees = () => {
                         ))}
                     </select>
                   </div>
-                </div>
-              </div>
-
-              {/* Section 3: Compensation & Salary Setup */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  3. Compensation & Salary Setup
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Gross Salary (₹/Mo)</label>
-                    <input
-                      name="grossSalary"
-                      type="number"
-                      min="0"
-                      placeholder="e.g. 25000"
-                      value={editModal.form.grossSalary}
-                      onChange={handleEditChange}
-                      className="form-input font-mono text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Basic Salary (₹/Mo)</label>
-                    <input
-                      name="basicSalary"
-                      type="number"
-                      min="0"
-                      placeholder="e.g. 15000"
-                      value={editModal.form.basicSalary}
-                      onChange={handleEditChange}
-                      className="form-input font-mono text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Other Deductions (₹)</label>
-                    <input
-                      name="otherDeductions"
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={editModal.form.otherDeductions}
-                      onChange={handleEditChange}
-                      className="form-input font-mono text-xs"
-                    />
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-4">
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="pfApplicable"
-                      checked={editModal.form.pfApplicable}
-                      onChange={handleEditChange}
-                      className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer"
-                    />
-                    <span>PF Applicable (12%)</span>
-                  </label>
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="esiApplicable"
-                      checked={editModal.form.esiApplicable}
-                      onChange={handleEditChange}
-                      className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 cursor-pointer"
-                    />
-                    <span>ESI Applicable (0.75%)</span>
-                  </label>
                 </div>
               </div>
             </form>
