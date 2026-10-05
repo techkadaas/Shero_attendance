@@ -17,7 +17,6 @@ import {
   Building2,
   Briefcase,
   Home,
-  Laptop,
   Compass,
   Calendar,
   Plus,
@@ -29,7 +28,9 @@ import {
   Globe,
   ChevronLeft,
   ChevronRight,
-  Check
+  Check,
+  SlidersHorizontal,
+  CheckCircle2
 } from 'lucide-react';
 
 interface Holiday {
@@ -58,7 +59,11 @@ const DEFAULT_DEPARTMENTS = [
   'Compliance',
 ];
 
+type SettingsTab = 'TIMINGS' | 'GEOFENCE' | 'WFH' | 'HOLIDAYS' | 'DEPARTMENTS' | 'PAYROLL';
+
 const AdminSettings = () => {
+  const [activeTab, setActiveTab] = useState<SettingsTab>('TIMINGS');
+
   const [settings, setSettings] = useState({
     pfEmployeeRate: 0.12,
     pfEmployerRate: 0.12,
@@ -481,7 +486,7 @@ const AdminSettings = () => {
     }
     const updatedDepts = currentDepts.filter(d => d !== deptToRemove);
     setSettings((prev) => ({ ...prev, departments: updatedDepts }));
-    toast.success(`Department "${deptToRemove}" removed`);
+    toast.success(`Department "${deptToRemove}" removed. Click Save to apply.`);
   };
 
   const handleDetectLocation = () => {
@@ -512,8 +517,8 @@ const AdminSettings = () => {
     );
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setSaving(true);
     try {
       await api.put('/admin/settings', settings);
@@ -570,6 +575,52 @@ const AdminSettings = () => {
     });
   }
 
+  // Tabs configuration with helpful badges
+  const tabs = [
+    {
+      id: 'TIMINGS' as SettingsTab,
+      label: 'Shift & Timings',
+      icon: Clock,
+      badge: `${settings.officeStartTime} - ${settings.officeEndTime}`,
+      badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
+    },
+    {
+      id: 'GEOFENCE' as SettingsTab,
+      label: 'Office Geofence',
+      icon: MapPin,
+      badge: `${settings.officeLocation.radiusMeters}m Radius`,
+      badgeColor: 'bg-teal-50 text-teal-700 border-teal-200',
+    },
+    {
+      id: 'WFH' as SettingsTab,
+      label: 'Company WFH Days',
+      icon: Home,
+      badge: `${wfhDaysList.length} Scheduled`,
+      badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    },
+    {
+      id: 'HOLIDAYS' as SettingsTab,
+      label: 'Holidays Calendar',
+      icon: Calendar,
+      badge: `${holidays.length} Holidays`,
+      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    },
+    {
+      id: 'DEPARTMENTS' as SettingsTab,
+      label: 'Departments',
+      icon: Briefcase,
+      badge: `${(settings.departments || DEFAULT_DEPARTMENTS).length} Units`,
+      badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+    },
+    {
+      id: 'PAYROLL' as SettingsTab,
+      label: 'Payroll & Statutory',
+      icon: Calculator,
+      badge: `PF ${(settings.pfEmployeeRate * 100).toFixed(0)}% / ESI ${(settings.esiEmployeeRate * 100).toFixed(2)}%`,
+      badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
+    },
+  ];
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500">
@@ -580,1104 +631,1222 @@ const AdminSettings = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12 animate-fade-in">
+    <div className="space-y-6 max-w-6xl mx-auto pb-24 animate-fade-in">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl relative overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-6 sm:p-7 rounded-3xl shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-semibold uppercase tracking-wider mb-3">
-            <Settings className="w-3.5 h-3.5" />
-            Global Configurations
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-semibold uppercase tracking-wider mb-2">
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            Admin Control Center
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-white">
-            System & Geofence Settings
+            System & Organization Settings
           </h1>
-          <p className="text-slate-300 text-sm mt-1 max-w-xl">
-            Configure automated compliance deductions, shift benchmarks, and set office geofencing for WFO employees.
+          <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-xl">
+            Quickly navigate and customize shifts, office geofence perimeter, company WFH dates, holidays, departments, and payroll rules.
           </p>
         </div>
-        <div className="relative z-10 flex items-center gap-3">
+        <div className="relative z-10 flex items-center gap-2.5">
           <button
             type="button"
             onClick={fetchSettings}
-            className="px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 text-slate-200 text-xs font-semibold transition-all flex items-center gap-2"
+            className="px-3.5 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 text-slate-200 text-xs font-semibold transition-all flex items-center gap-1.5"
+            title="Reload settings from server"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            Reset
+            <span>Reset</span>
           </button>
+          {['TIMINGS', 'GEOFENCE', 'PAYROLL', 'DEPARTMENTS'].includes(activeTab) && (
+            <button
+              type="button"
+              onClick={() => handleSave()}
+              disabled={saving}
+              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Settings</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
-        
-        {/* Office Geolocation & Geofencing Card */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-8 space-y-6 hover:shadow-card-hover transition-all">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold shadow-xs">
-                <MapPin className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  Office Location & Geofence Coordinates
-                  <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200/80">
-                    Google Maps Enabled
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Set office coordinates via Google Maps or device GPS. WFO employees must be within this perimeter to check in.
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2 shrink-0">
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${settings.officeLocation.latitude},${settings.officeLocation.longitude}`}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-                title="View current office pin in Google Maps"
-              >
-                <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-                <span>Open Google Maps</span>
-              </a>
+      {/* Tabs Navigation Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-1.5 shadow-xs sticky top-3 z-30 backdrop-blur-md bg-white/95">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
               <button
+                key={tab.id}
                 type="button"
-                onClick={handleDetectLocation}
-                disabled={detectingLocation}
-                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-xs active:scale-95 shrink-0"
-                title="Auto-detect coordinates using device GPS"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                  isActive
+                    ? 'bg-teal-600 text-white shadow-sm shadow-teal-600/20'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
               >
-                <Navigation className={`w-3.5 h-3.5 text-teal-100 ${detectingLocation ? 'animate-spin' : ''}`} />
-                {detectingLocation ? 'Detecting GPS...' : 'Auto-Fill Current GPS'}
-              </button>
-            </div>
-          </div>
-
-          {/* Google Maps Quick Link / Coordinates Importer */}
-          <div className="p-4 bg-teal-50/60 rounded-2xl border border-teal-200/80 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
-                <Globe className="w-4 h-4 text-teal-600" />
-                Paste Google Maps Link or Coordinates:
-              </label>
-              <span className="text-[10px] font-semibold text-teal-700 bg-white/80 px-2 py-0.5 rounded-full border border-teal-200">
-                Auto-extracts Latitude & Longitude
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={googleMapsInput}
-                onChange={(e) => handleParseGoogleMaps(e.target.value)}
-                placeholder="e.g. https://maps.google.com/?q=13.0456,80.2345 or 13.0456, 80.2345"
-                className="w-full px-3.5 py-2 text-xs bg-white rounded-xl border border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-slate-800 placeholder:text-slate-400"
-              />
-              <button
-                type="button"
-                onClick={() => handleParseGoogleMaps(googleMapsInput)}
-                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl whitespace-nowrap transition-colors"
-              >
-                Apply
-              </button>
-            </div>
-            <p className="text-[11px] text-teal-800/80">
-              💡 <strong>Tip:</strong> Open your office location in Google Maps, right-click on the building, click the coordinates to copy, and paste here!
-            </p>
-          </div>
-
-          {/* Quick Location Preset Selector */}
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="text-xs font-bold text-slate-500 mr-1">Quick Presets:</span>
-            {[
-              { label: '🏢 Chennai HQ', lat: 13.0827, lng: 80.2707, addr: 'Shero HQ, Anna Nagar, Chennai' },
-              { label: '🏢 Bangalore Office', lat: 12.9716, lng: 77.5946, addr: 'Shero Tech Hub, Koramangala, Bangalore' },
-              { label: '🏢 Hyderabad Hub', lat: 17.3850, lng: 78.4867, addr: 'Shero Kitchen, HITEC City, Hyderabad' },
-              { label: '🏢 Coimbatore Central', lat: 11.0168, lng: 76.9558, addr: 'Shero Centre, RS Puram, Coimbatore' },
-            ].map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => {
-                  setSettings({
-                    ...settings,
-                    officeLocation: {
-                      ...settings.officeLocation,
-                      latitude: preset.lat,
-                      longitude: preset.lng,
-                      address: preset.addr,
-                    },
-                  });
-                  toast.success(`Coordinates loaded for ${preset.label}`);
-                }}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-teal-50 hover:border-teal-300 text-slate-700 hover:text-teal-800 text-xs font-semibold transition-all"
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Office Name / Address Label</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Building2 className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  required
-                  value={settings.officeLocation.address}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    officeLocation: { ...settings.officeLocation, address: e.target.value }
-                  })}
-                  className="form-input pl-10"
-                  placeholder="e.g. Shero HQ, Anna Nagar, Chennai"
-                />
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">Displayed to employees during geofence verification.</p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Latitude</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Compass className="w-4 h-4" />
-                </div>
-                <input
-                  type="number"
-                  step="0.000001"
-                  required
-                  value={settings.officeLocation.latitude}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    officeLocation: { ...settings.officeLocation, latitude: parseFloat(e.target.value) || 0 }
-                  })}
-                  className="form-input pl-10 font-mono font-medium text-slate-800"
-                  placeholder="13.0827"
-                />
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">GPS latitude coordinate</p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Longitude</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Compass className="w-4 h-4" />
-                </div>
-                <input
-                  type="number"
-                  step="0.000001"
-                  required
-                  value={settings.officeLocation.longitude}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    officeLocation: { ...settings.officeLocation, longitude: parseFloat(e.target.value) || 0 }
-                  })}
-                  className="form-input pl-10 font-mono font-medium text-slate-800"
-                  placeholder="80.2707"
-                />
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">GPS longitude coordinate</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-2">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Allowed Geofence Radius (Meters)</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="20"
-                  max="10000"
-                  step="10"
-                  required
-                  value={settings.officeLocation.radiusMeters}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    officeLocation: { ...settings.officeLocation, radiusMeters: parseInt(e.target.value) || 100 }
-                  })}
-                  className="form-input font-mono font-bold text-slate-800"
-                />
-                <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-                  <span className="text-xs text-slate-400 font-medium">meters</span>
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">Distance allowance from center coordinate (e.g. 500m).</p>
-            </div>
-
-            <div className="sm:col-span-2 flex items-center">
-              <div className="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 flex items-start gap-2.5 text-xs text-slate-600">
-                <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-slate-800">Policy Rules:</span>
-                  <ul className="list-disc pl-4 mt-1 space-y-0.5 text-slate-500 text-[11px]">
-                    <li><strong className="text-teal-700">WFO Employees:</strong> Blocked from logging in or punching in if outside the {settings.officeLocation.radiusMeters}m office radius.</li>
-                    <li><strong className="text-indigo-700">WFH Employees:</strong> Can log in and punch in from any location without geofencing restrictions.</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Live Google Map Interactive View */}
-          <div className="pt-3 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Globe className="w-4 h-4 text-teal-600" />
-                Live Google Maps Location Preview:
-              </span>
-              <span className="text-[11px] text-slate-400 font-mono">
-                {settings.officeLocation.latitude.toFixed(4)}, {settings.officeLocation.longitude.toFixed(4)}
-              </span>
-            </div>
-            <div className="w-full h-72 rounded-2xl overflow-hidden border border-slate-200 shadow-xs bg-slate-100 relative">
-              <iframe
-                title="Google Map Office Location"
-                width="100%"
-                height="100%"
-                className="w-full h-full border-0"
-                loading="lazy"
-                src={`https://maps.google.com/maps?q=${settings.officeLocation.latitude},${settings.officeLocation.longitude}&z=16&output=embed`}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Statutory PF & ESI Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* PF Settings Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5 flex flex-col justify-between hover:shadow-md transition-shadow">
-            <div>
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                    PF
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">Provident Fund (PF)</h3>
-                    <p className="text-xs text-slate-500">Calculated on Employee Basic Salary</p>
-                  </div>
-                </div>
-                <span className="text-[11px] font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-200/60">
-                  EPFO Compliant
+                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                <span>{tab.label}</span>
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${
+                    isActive
+                      ? 'bg-teal-700/80 text-teal-100 border-teal-500/50'
+                      : tab.badgeColor
+                  }`}
+                >
+                  {tab.badge}
                 </span>
-              </div>
-
-              <div className="space-y-4 pt-5">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Employee Contribution Rate</label>
-                    <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                      {(settings.pfEmployeeRate * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="relative rounded-xl shadow-xs">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <Percent className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      required
-                      value={Number((settings.pfEmployeeRate * 100).toFixed(4))}
-                      onChange={(e) => setSettings({ ...settings, pfEmployeeRate: (parseFloat(e.target.value) || 0) / 100 })}
-                      className="form-input pl-10 pr-24 font-mono font-medium"
-                    />
-                    <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-                      <span className="text-xs text-slate-400 font-medium">% of Basic</span>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-1">Standard statutory employee deduction is typically 12%.</p>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Employer Contribution Rate</label>
-                    <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                      {(settings.pfEmployerRate * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="relative rounded-xl shadow-xs">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <Percent className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      required
-                      value={Number((settings.pfEmployerRate * 100).toFixed(4))}
-                      onChange={(e) => setSettings({ ...settings, pfEmployerRate: (parseFloat(e.target.value) || 0) / 100 })}
-                      className="form-input pl-10 pr-24 font-mono font-medium"
-                    />
-                    <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-                      <span className="text-xs text-slate-400 font-medium">% of Basic</span>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-1">Direct company contribution credited towards employee provident fund.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex items-start gap-2.5 text-xs text-slate-600">
-              <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-              <span>Deductions update automatically during monthly payroll generation.</span>
-            </div>
-          </div>
-
-          {/* ESI Settings Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5 flex flex-col justify-between hover:shadow-md transition-shadow">
-            <div>
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-                    ESI
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">State Insurance (ESI)</h3>
-                    <p className="text-xs text-slate-500">Calculated on Total Gross Earnings</p>
-                  </div>
-                </div>
-                <span className="text-[11px] font-semibold px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full border border-purple-200/60">
-                  ESIC Standard
-                </span>
-              </div>
-
-              <div className="space-y-4 pt-5">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Employee Contribution Rate</label>
-                    <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                      {(settings.esiEmployeeRate * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="relative rounded-xl shadow-xs">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <Percent className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      required
-                      value={Number((settings.esiEmployeeRate * 100).toFixed(4))}
-                      onChange={(e) => setSettings({ ...settings, esiEmployeeRate: (parseFloat(e.target.value) || 0) / 100 })}
-                      className="form-input pl-10 pr-24 font-mono font-medium"
-                    />
-                    <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-                      <span className="text-xs text-slate-400 font-medium">% of Gross</span>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-1">Statutory employee health insurance rate is typically 0.75%.</p>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Employer Contribution Rate</label>
-                    <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                      {(settings.esiEmployerRate * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="relative rounded-xl shadow-xs">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <Percent className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      required
-                      value={Number((settings.esiEmployerRate * 100).toFixed(4))}
-                      onChange={(e) => setSettings({ ...settings, esiEmployerRate: (parseFloat(e.target.value) || 0) / 100 })}
-                      className="form-input pl-10 pr-24 font-mono font-medium"
-                    />
-                    <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-                      <span className="text-xs text-slate-400 font-medium">% of Gross</span>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-1">Company insurance contribution rate is typically 3.25%.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex items-start gap-2.5 text-xs text-slate-600">
-              <HelpCircle className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-              <span>Gross monthly salary exceeding ₹21,000 is automatically exempted from ESI.</span>
-            </div>
-          </div>
-
+              </button>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Work Week Schedule & Working Days Policy */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5 hover:shadow-md transition-shadow">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                <Calendar className="w-5 h-5" />
+      {/* TAB 1: SHIFT TIMINGS & WORKING DAYS */}
+      {activeTab === 'TIMINGS' && (
+        <form onSubmit={handleSave} className="space-y-6 animate-fade-in">
+          {/* Shift Hours & Late Grace Period */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-xs">
+                  <Clock className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    Shift Timings & Grace Policy
+                    <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200/80">
+                      Attendance Rules
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Defines the official office benchmark times and late arrival grace minutes applied during punch-in.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Working Days & Weekly Off Policy</h3>
-                <p className="text-xs text-slate-500">Defines standard monthly working days for salary and payroll calculations (excluding holidays)</p>
-              </div>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 self-start sm:self-auto shrink-0"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Save Timings</span>
+              </button>
             </div>
-            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200 self-start sm:self-auto">
-              Payroll Base
-            </span>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-            <button
-              type="button"
-              onClick={() => setSettings({ ...settings, workWeekPattern: '6_DAYS' })}
-              className={`p-4 rounded-2xl border text-left transition-all ${
-                settings.workWeekPattern === '6_DAYS'
-                  ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <div className="flex justify-between items-center mb-1.5">
-                <span className="text-xs font-bold text-slate-900">6-Day Working Week</span>
-                {settings.workWeekPattern === '6_DAYS' && <span className="w-2 h-2 rounded-full bg-teal-600" />}
-              </div>
-              <p className="text-[11px] text-slate-500">Monday to Saturday duty (Sundays are off). Standard company schedule.</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSettings({ ...settings, workWeekPattern: '5_DAYS' })}
-              className={`p-4 rounded-2xl border text-left transition-all ${
-                settings.workWeekPattern === '5_DAYS'
-                  ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <div className="flex justify-between items-center mb-1.5">
-                <span className="text-xs font-bold text-slate-900">5-Day Working Week</span>
-                {settings.workWeekPattern === '5_DAYS' && <span className="w-2 h-2 rounded-full bg-teal-600" />}
-              </div>
-              <p className="text-[11px] text-slate-500">Monday to Friday duty (Saturdays & Sundays are off).</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSettings({ ...settings, workWeekPattern: 'ALTERNATE_SATURDAYS' })}
-              className={`p-4 rounded-2xl border text-left transition-all ${
-                settings.workWeekPattern === 'ALTERNATE_SATURDAYS'
-                  ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <div className="flex justify-between items-center mb-1.5">
-                <span className="text-xs font-bold text-slate-900">Alternate Saturdays</span>
-                {settings.workWeekPattern === 'ALTERNATE_SATURDAYS' && <span className="w-2 h-2 rounded-full bg-teal-600" />}
-              </div>
-              <p className="text-[11px] text-slate-500">2nd & 4th Saturdays + All Sundays off. 1st, 3rd & 5th Saturdays working.</p>
-            </button>
-          </div>
-        </div>
-
-        {/* Office Working Hours & Late Grace Period */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6 hover:shadow-md transition-shadow">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Shift Timings & Grace Policy</h3>
-                <p className="text-xs text-slate-500">Defines the benchmark times used for attendance status and late arrivals</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200/60">
-              <AlertCircle className="w-3.5 h-3.5" />
-              Applies to all employee check-ins
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Office Start Time</label>
-              <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
+                <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wider">
+                  Office Start Time
+                </label>
                 <input
                   type="time"
                   required
                   value={settings.officeStartTime}
                   onChange={(e) => setSettings({ ...settings, officeStartTime: e.target.value })}
-                  className="form-input font-mono font-semibold text-slate-800 text-sm"
+                  className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-slate-200 font-mono font-bold text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
+                <p className="text-[11px] text-slate-500 mt-1.5">Official morning duty commencement (e.g. 09:00 AM).</p>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Official morning duty commencement.</p>
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Office End Time</label>
-              <div className="relative">
+              <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
+                <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wider">
+                  Office End Time
+                </label>
                 <input
                   type="time"
                   required
                   value={settings.officeEndTime}
                   onChange={(e) => setSettings({ ...settings, officeEndTime: e.target.value })}
-                  className="form-input font-mono font-semibold text-slate-800 text-sm"
+                  className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-slate-200 font-mono font-bold text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
+                <p className="text-[11px] text-slate-500 mt-1.5">Official daily wrap-up time (e.g. 06:00 PM).</p>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Official daily wrap-up time.</p>
+
+              <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
+                <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wider">
+                  Late Grace Threshold (Minutes)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="120"
+                    required
+                    value={settings.graceMinutes}
+                    onChange={(e) => setSettings({ ...settings, graceMinutes: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-slate-200 font-mono font-bold text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 pr-16"
+                  />
+                  <span className="absolute inset-y-0 right-3.5 flex items-center text-xs text-slate-400 font-medium">mins</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5">Grace period after start time before check-in is logged as Late.</p>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Late Grace Threshold (Minutes)</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  max="120"
-                  required
-                  value={settings.graceMinutes}
-                  onChange={(e) => setSettings({ ...settings, graceMinutes: parseInt(e.target.value) || 0 })}
-                  className="form-input font-mono font-semibold text-slate-800 text-sm"
-                />
+            {/* Visual Shift Timeline Representation */}
+            <div className="bg-gradient-to-r from-slate-50 via-amber-50/30 to-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                  Live Daily Shift Timeline
+                </span>
+                <span className="text-amber-800 font-mono bg-amber-100/70 px-2.5 py-0.5 rounded-md text-[11px]">
+                  Total Shift: {
+                    (() => {
+                      const [sH, sM] = settings.officeStartTime.split(':').map(Number);
+                      const [eH, eM] = settings.officeEndTime.split(':').map(Number);
+                      let diff = (eH * 60 + eM) - (sH * 60 + sM);
+                      if (diff < 0) diff += 24 * 60;
+                      return `${Math.floor(diff / 60)}h ${diff % 60}m`;
+                    })()
+                  }
+                </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Minutes after start time before check-in is flagged Late.</p>
+              
+              <div className="relative h-7 bg-slate-200 rounded-xl overflow-hidden flex items-center p-1 text-[11px] font-bold">
+                <div className="h-full bg-emerald-600 text-white rounded-l-lg flex items-center justify-center px-2.5 shadow-xs" style={{ width: '28%' }}>
+                  On Time ({settings.officeStartTime})
+                </div>
+                <div className="h-full bg-amber-400 text-slate-900 flex items-center justify-center px-2 shadow-xs" style={{ width: '22%' }}>
+                  Grace (+{settings.graceMinutes}m)
+                </div>
+                <div className="h-full bg-rose-500 text-white flex items-center justify-center px-2 shadow-xs" style={{ width: '25%' }}>
+                  Late Window
+                </div>
+                <div className="h-full bg-teal-700 text-white rounded-r-lg flex items-center justify-center px-2 flex-1 shadow-xs">
+                  Checkout ({settings.officeEndTime})
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Visual Shift Timeline representation */}
-          <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-100 space-y-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-              <span>Shift Timeline Visualization</span>
-              <span className="text-slate-500 font-mono">
-                Duration: {
-                  (() => {
-                    const [sH, sM] = settings.officeStartTime.split(':').map(Number);
-                    const [eH, eM] = settings.officeEndTime.split(':').map(Number);
-                    let diff = (eH * 60 + eM) - (sH * 60 + sM);
-                    if (diff < 0) diff += 24 * 60;
-                    return `${Math.floor(diff / 60)}h ${diff % 60}m`;
-                  })()
-                }
+          {/* Working Days & Weekly Off Policy */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-8 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Working Days & Weekly Off Policy</h3>
+                  <p className="text-xs text-slate-500">Defines standard weekly working days for monthly salary and attendance expectations</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200 self-start sm:self-auto">
+                Payroll Standard
               </span>
             </div>
-            
-            <div className="relative h-6 bg-slate-200/80 rounded-full overflow-hidden flex items-center p-1">
-              <div className="h-full bg-emerald-500 rounded-l-full flex items-center justify-center text-[10px] text-white font-bold px-2" style={{ width: '25%' }}>
-                On Time ({settings.officeStartTime})
-              </div>
-              <div className="h-full bg-amber-400 flex items-center justify-center text-[10px] text-slate-900 font-bold px-2" style={{ width: '20%' }}>
-                Grace ({settings.graceMinutes}m)
-              </div>
-              <div className="h-full bg-rose-400/80 flex items-center justify-center text-[10px] text-white font-bold px-2" style={{ width: '30%' }}>
-                Late Check-In
-              </div>
-              <div className="h-full bg-teal-600 rounded-r-full flex items-center justify-center text-[10px] text-white font-bold px-2 flex-1">
-                Checkout ({settings.officeEndTime})
-              </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, workWeekPattern: '6_DAYS' })}
+                className={`p-5 rounded-2xl border text-left transition-all ${
+                  settings.workWeekPattern === '6_DAYS'
+                    ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-sm'
+                    : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                }`}
+              >
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-sm font-bold text-slate-900">6-Day Working Week</span>
+                  {settings.workWeekPattern === '6_DAYS' && (
+                    <CheckCircle2 className="w-4 h-4 text-teal-600" />
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">Monday to Saturday duty (Sundays are off). Standard company schedule.</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, workWeekPattern: '5_DAYS' })}
+                className={`p-5 rounded-2xl border text-left transition-all ${
+                  settings.workWeekPattern === '5_DAYS'
+                    ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-sm'
+                    : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                }`}
+              >
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-sm font-bold text-slate-900">5-Day Working Week</span>
+                  {settings.workWeekPattern === '5_DAYS' && (
+                    <CheckCircle2 className="w-4 h-4 text-teal-600" />
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">Monday to Friday duty (Saturdays & Sundays are off).</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, workWeekPattern: 'ALTERNATE_SATURDAYS' })}
+                className={`p-5 rounded-2xl border text-left transition-all ${
+                  settings.workWeekPattern === 'ALTERNATE_SATURDAYS'
+                    ? 'bg-teal-50/90 border-teal-600 ring-2 ring-teal-500/20 shadow-sm'
+                    : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                }`}
+              >
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-sm font-bold text-slate-900">Alternate Saturdays</span>
+                  {settings.workWeekPattern === 'ALTERNATE_SATURDAYS' && (
+                    <CheckCircle2 className="w-4 h-4 text-teal-600" />
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">2nd & 4th Saturdays + All Sundays off. 1st, 3rd & 5th Saturdays working.</p>
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Live Statutory Preview Simulator */}
-        <div className="bg-gradient-to-br from-teal-50/70 via-emerald-50/40 to-slate-50 rounded-2xl border border-teal-100 p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-teal-600 text-white flex items-center justify-center">
-                <Calculator className="w-4 h-4" />
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              <span>{saving ? 'Saving Changes...' : 'Save Shift Settings'}</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* TAB 2: OFFICE LOCATION & GEOFENCE */}
+      {activeTab === 'GEOFENCE' && (
+        <form onSubmit={handleSave} className="space-y-6 animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold shadow-xs">
+                  <MapPin className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    Office Location & Geofence Coordinates
+                    <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200/80">
+                      Google Maps Enabled
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Set office coordinates via Google Maps or device GPS. WFO employees must be within this perimeter to check in.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">Live Deduction Simulator</h4>
-                <p className="text-xs text-slate-500">Preview calculated deductions on sample salary figures</p>
+              
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${settings.officeLocation.latitude},${settings.officeLocation.longitude}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                  title="View current office pin in Google Maps"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Open Maps</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={handleDetectLocation}
+                  disabled={detectingLocation}
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-xs active:scale-95 shrink-0"
+                  title="Auto-detect coordinates using device GPS"
+                >
+                  <Navigation className={`w-3.5 h-3.5 text-teal-100 ${detectingLocation ? 'animate-spin' : ''}`} />
+                  {detectingLocation ? 'Detecting GPS...' : 'Auto-Fill Current GPS'}
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-600">Sample Gross:</span>
-              <div className="relative w-32">
-                <span className="absolute inset-y-0 left-2.5 flex items-center text-xs text-slate-400">₹</span>
+
+            {/* Google Maps Quick Link / Coordinates Importer */}
+            <div className="p-4 bg-teal-50/70 rounded-2xl border border-teal-200/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+                  <Globe className="w-4 h-4 text-teal-600" />
+                  Paste Google Maps Link or Coordinates:
+                </label>
+                <span className="text-[10px] font-semibold text-teal-700 bg-white/80 px-2 py-0.5 rounded-full border border-teal-200">
+                  Auto-extracts Latitude & Longitude
+                </span>
+              </div>
+              <div className="flex gap-2">
                 <input
-                  type="number"
-                  step="1000"
-                  value={sampleSalary}
-                  onChange={(e) => setSampleSalary(parseFloat(e.target.value) || 0)}
-                  className="w-full pl-6 pr-2 py-1 text-xs font-mono font-bold bg-white rounded-lg border border-teal-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  type="text"
+                  value={googleMapsInput}
+                  onChange={(e) => handleParseGoogleMaps(e.target.value)}
+                  placeholder="e.g. https://maps.google.com/?q=13.0456,80.2345 or 13.0456, 80.2345"
+                  className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-slate-800 placeholder:text-slate-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleParseGoogleMaps(googleMapsInput)}
+                  className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl whitespace-nowrap transition-colors shadow-xs"
+                >
+                  Apply
+                </button>
+              </div>
+              <p className="text-[11px] text-teal-800/80">
+                💡 <strong>Tip:</strong> Open your office location in Google Maps, right-click on the building, copy the coordinates, and paste here!
+              </p>
+            </div>
+
+            {/* Quick Location Preset Selector */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-xs font-bold text-slate-600 mr-1">Quick Presets:</span>
+              {[
+                { label: '🏢 Chennai HQ', lat: 13.0827, lng: 80.2707, addr: 'Shero HQ, Anna Nagar, Chennai' },
+                { label: '🏢 Bangalore Office', lat: 12.9716, lng: 77.5946, addr: 'Shero Tech Hub, Koramangala, Bangalore' },
+                { label: '🏢 Hyderabad Hub', lat: 17.3850, lng: 78.4867, addr: 'Shero Kitchen, HITEC City, Hyderabad' },
+                { label: '🏢 Coimbatore Central', lat: 11.0168, lng: 76.9558, addr: 'Shero Centre, RS Puram, Coimbatore' },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    setSettings({
+                      ...settings,
+                      officeLocation: {
+                        ...settings.officeLocation,
+                        latitude: preset.lat,
+                        longitude: preset.lng,
+                        address: preset.addr,
+                      },
+                    });
+                    toast.success(`Coordinates loaded for ${preset.label}`);
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-teal-50 hover:border-teal-300 text-slate-700 hover:text-teal-800 text-xs font-semibold transition-all"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Office Name / Address Label</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={settings.officeLocation.address}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      officeLocation: { ...settings.officeLocation, address: e.target.value }
+                    })}
+                    className="w-full pl-10 pr-3.5 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-medium text-slate-800"
+                    placeholder="e.g. Shero HQ, Anna Nagar, Chennai"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">Displayed to employees during geofence verification.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Latitude</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Compass className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    required
+                    value={settings.officeLocation.latitude}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      officeLocation: { ...settings.officeLocation, latitude: parseFloat(e.target.value) || 0 }
+                    })}
+                    className="w-full pl-10 pr-3.5 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-mono font-bold text-slate-800"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">Center coordinate latitude.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Longitude</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Compass className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    required
+                    value={settings.officeLocation.longitude}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      officeLocation: { ...settings.officeLocation, longitude: parseFloat(e.target.value) || 0 }
+                    })}
+                    className="w-full pl-10 pr-3.5 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-mono font-bold text-slate-800"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">Center coordinate longitude.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">Perimeter Radius</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="50"
+                    max="5000"
+                    step="10"
+                    required
+                    value={settings.officeLocation.radiusMeters}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      officeLocation: { ...settings.officeLocation, radiusMeters: parseInt(e.target.value) || 100 }
+                    })}
+                    className="w-full pl-3.5 pr-16 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-mono font-bold text-slate-800"
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+                    <span className="text-xs text-slate-400 font-medium">meters</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">Distance allowance from center (e.g. 500m).</p>
+              </div>
+
+              <div className="sm:col-span-3 flex items-center">
+                <div className="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-100 flex items-start gap-2.5 text-xs text-slate-600">
+                  <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-slate-800">Policy Rules:</span>
+                    <ul className="list-disc pl-4 mt-1 space-y-0.5 text-slate-500 text-[11px]">
+                      <li><strong className="text-teal-700">WFO Employees:</strong> Blocked from punching in if outside the {settings.officeLocation.radiusMeters}m office radius.</li>
+                      <li><strong className="text-indigo-700">WFH Employees:</strong> Can punch in from any location without geofencing restrictions.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Google Map Interactive View */}
+            <div className="pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Globe className="w-4 h-4 text-teal-600" />
+                  Live Google Maps Location Preview:
+                </span>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {settings.officeLocation.latitude.toFixed(4)}, {settings.officeLocation.longitude.toFixed(4)}
+                </span>
+              </div>
+              <div className="w-full h-80 rounded-2xl overflow-hidden border border-slate-200 shadow-xs bg-slate-100 relative">
+                <iframe
+                  title="Google Map Office Location"
+                  width="100%"
+                  height="100%"
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  src={`https://maps.google.com/maps?q=${settings.officeLocation.latitude},${settings.officeLocation.longitude}&z=16&output=embed`}
                 />
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div className="bg-white/90 p-3 rounded-xl border border-teal-100 shadow-xs">
-              <span className="text-[11px] font-medium text-slate-500">Basic (50%)</span>
-              <p className="text-sm font-bold font-mono text-slate-800 mt-0.5">₹{sampleBasic.toLocaleString()}</p>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              <span>{saving ? 'Saving Changes...' : 'Save Office Coordinates'}</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* TAB 3: COMPANY WFH SCHEDULE */}
+      {activeTab === 'WFH' && (
+        <div className="space-y-6 animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-card space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold shadow-xs">
+                  <Home className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    Company-Wide Work From Home (WFH) Schedule
+                    <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200/80">
+                      Remote Policy
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Declare specific dates when all employees work remotely (e.g. Wednesday & Saturday WFH). Office GPS geofencing is automatically waived on these dates.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setBulkWfhModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Bulk Add Recurring WFH</span>
+                </button>
+                <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 border border-slate-200">
+                  {wfhDaysList.length} Scheduled
+                </span>
+              </div>
             </div>
-            <div className="bg-white/90 p-3 rounded-xl border border-teal-100 shadow-xs">
-              <span className="text-[11px] font-medium text-blue-600">PF (Employee)</span>
-              <p className="text-sm font-bold font-mono text-slate-800 mt-0.5">₹{simPfEmployee.toFixed(0)}</p>
-            </div>
-            <div className="bg-white/90 p-3 rounded-xl border border-teal-100 shadow-xs">
-              <span className="text-[11px] font-medium text-purple-600">ESI (Employee)</span>
-              <p className="text-sm font-bold font-mono text-slate-800 mt-0.5">
-                {simEsiEmployee > 0 ? `₹${simEsiEmployee.toFixed(0)}` : 'Exempt (>₹21k)'}
-              </p>
-            </div>
-            <div className="bg-white/90 p-3 rounded-xl border border-emerald-200 shadow-xs">
-              <span className="text-[11px] font-semibold text-emerald-700">Estimated Net Pay</span>
-              <p className="text-sm font-bold font-mono text-emerald-700 mt-0.5">
-                ₹{(sampleSalary - simPfEmployee - simEsiEmployee).toLocaleString()}
-              </p>
+
+            {/* Add WFH Day Form */}
+            <form onSubmit={handleAddWfhDay} className="bg-slate-50/80 rounded-2xl p-5 border border-slate-200/80 space-y-4">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                Add Specific Company WFH Date
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Select Date <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={wfhDayForm.date}
+                    onChange={(e) => setWfhDayForm({ ...wfhDayForm, date: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    WFH Title / Label
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Wednesday Team WFH, Saturday Remote"
+                    value={wfhDayForm.title}
+                    onChange={(e) => setWfhDayForm({ ...wfhDayForm, title: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Optional Notes / Remarks</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Office maintenance / Routine remote day"
+                    value={wfhDayForm.description}
+                    onChange={(e) => setWfhDayForm({ ...wfhDayForm, description: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="submit"
+                  disabled={submittingWfhDay}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  {submittingWfhDay ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Plus className="w-3.5 h-3.5" />
+                  )}
+                  <span>Add WFH Day</span>
+                </button>
+              </div>
+            </form>
+
+            {/* WFH Days List */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Scheduled Company WFH Dates ({wfhDaysList.length})
+              </h3>
+
+              {loadingWfhDays ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  <div className="w-6 h-6 border-2 border-indigo-500/20 border-t-indigo-600 rounded-full animate-spin mx-auto mb-2" />
+                  Loading scheduled WFH days...
+                </div>
+              ) : wfhDaysList.length === 0 ? (
+                <div className="py-10 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400 px-4">
+                  No company-wide WFH days added yet. Use the form above to declare remote days for specific dates or bulk generate weekly recurring WFH days (e.g. Wednesdays & Saturdays).
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-slate-200/80 rounded-2xl max-h-[460px] overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-3">Scheduled Date</th>
+                        <th className="px-4 py-3">Day of Week</th>
+                        <th className="px-4 py-3">Title / Reason</th>
+                        <th className="px-4 py-3">Notes</th>
+                        <th className="px-4 py-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {wfhDaysList.map((w) => {
+                        const dateObj = new Date(w.date + 'T00:00:00');
+                        const formattedDate = dateObj.toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        });
+                        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                        return (
+                          <tr key={w._id || w.date} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3.5 font-mono font-bold text-slate-900">{formattedDate}</td>
+                            <td className="px-4 py-3.5">
+                              <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full border ${
+                                dayName === 'Wednesday' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                dayName === 'Saturday' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                dayName === 'Friday' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}>
+                                🏢+🏠 {dayName}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 font-bold text-slate-800">{w.title}</td>
+                            <td className="px-4 py-3.5 text-slate-500">{w.description || 'Entire company works remotely'}</td>
+                            <td className="px-4 py-3.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteWfhDay(w._id || w.date)}
+                                className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                                title="Delete WFH day"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>
+      )}
 
-        {/* Section: Department Management */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-8 space-y-6 hover:shadow-card-hover transition-all">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold shadow-xs">
-                <Briefcase className="w-6 h-6" />
+      {/* TAB 4: COMPANY HOLIDAYS CALENDAR */}
+      {activeTab === 'HOLIDAYS' && (
+        <div className="space-y-6 animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-card space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Company Holidays Calendar</h2>
+                  <p className="text-xs text-slate-500">Configure official declared holidays for all employees and monthly payroll rosters</p>
+                </div>
               </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setBulkModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Bulk Add Holidays</span>
+                </button>
+                <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 border border-slate-200">
+                  {holidays.length} Holidays
+                </span>
+              </div>
+            </div>
+
+            {/* Add Holiday Form */}
+            <form onSubmit={handleAddHoliday} className="bg-slate-50/80 rounded-2xl p-5 border border-slate-200/80 space-y-4">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-teal-600" />
+                Add New Company Holiday
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Holiday Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Diwali, Republic Day"
+                    value={holidayForm.name}
+                    onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Date <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={holidayForm.date}
+                    onChange={(e) => setHolidayForm({ ...holidayForm, date: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Holiday Type</label>
+                  <select
+                    value={holidayForm.type}
+                    onChange={(e) => setHolidayForm({ ...holidayForm, type: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  >
+                    <option value="FESTIVAL">Festival Holiday</option>
+                    <option value="NATIONAL">National Holiday</option>
+                    <option value="COMPANY">Company Specific Holiday</option>
+                    <option value="OPTIONAL">Optional / Restricted</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Description / Remarks</label>
+                  <input
+                    type="text"
+                    placeholder="Optional notes"
+                    value={holidayForm.description}
+                    onChange={(e) => setHolidayForm({ ...holidayForm, description: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="submit"
+                  disabled={submittingHoliday}
+                  className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  {submittingHoliday ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Plus className="w-3.5 h-3.5" />
+                  )}
+                  <span>Add Holiday</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Holidays List */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Scheduled Holidays ({holidays.length})
+              </h3>
+
+              {loadingHolidays ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  <div className="w-6 h-6 border-2 border-teal-500/20 border-t-teal-600 rounded-full animate-spin mx-auto mb-2" />
+                  Loading holidays list...
+                </div>
+              ) : holidays.length === 0 ? (
+                <div className="py-10 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400 px-4">
+                  No company holidays added yet. Use the form above to add holidays to the roster.
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-slate-200/80 rounded-2xl max-h-[460px] overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-3">Holiday Name</th>
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Type</th>
+                        <th className="px-4 py-3">Notes</th>
+                        <th className="px-4 py-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {holidays.map((h) => {
+                        const formattedDate = new Date(h.date + 'T00:00:00').toLocaleDateString('en-US', {
+                          weekday: 'short',
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        });
+                        return (
+                          <tr key={h._id || h.date} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3.5 font-bold text-slate-900">{h.name}</td>
+                            <td className="px-4 py-3.5 font-mono text-slate-700">{formattedDate}</td>
+                            <td className="px-4 py-3.5">
+                              <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full border ${
+                                h.type === 'NATIONAL' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                h.type === 'COMPANY' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                h.type === 'OPTIONAL' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              }`}>
+                                {h.type || 'FESTIVAL'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-slate-500">{h.description || '-'}</td>
+                            <td className="px-4 py-3.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteHoliday(h._id)}
+                                className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                                title="Delete holiday"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: DEPARTMENTS */}
+      {activeTab === 'DEPARTMENTS' && (
+        <form onSubmit={handleSave} className="space-y-6 animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold shadow-xs">
+                  <Briefcase className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    Department Management
+                    <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200/80">
+                      {(settings.departments || DEFAULT_DEPARTMENTS).length} Active
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Manage business units & departments available when registering and profiling employees.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Add Department Input */}
+            <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-3">
+              <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
+                <Plus className="w-4 h-4 text-teal-600" />
+                Add New Department
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <input
+                  type="text"
+                  value={newDepartmentInput}
+                  onChange={(e) => setNewDepartmentInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddDepartment();
+                    }
+                  }}
+                  placeholder="e.g. DST, TECH, HR, OGB, KOB, Accounts, Finance, Compliance, Operations..."
+                  className="flex-1 px-3.5 py-2.5 text-xs bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-800 font-medium"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleAddDepartment()}
+                  className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95 shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Department</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Department Chips Cloud */}
+            <div className="space-y-2.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Configured Departments List
+              </label>
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                {(settings.departments || DEFAULT_DEPARTMENTS).map((dept) => (
+                  <div
+                    key={dept}
+                    className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold hover:border-teal-300 hover:bg-teal-50/50 transition-all shadow-2xs"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-teal-600"></span>
+                    <span>{dept}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteDepartment(dept)}
+                      className="ml-1 p-0.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                      title={`Remove ${dept}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400 pt-1">
+                Click &quot;Save Departments&quot; below to permanently apply any additions or removals.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              <span>{saving ? 'Saving Changes...' : 'Save Departments'}</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* TAB 6: PAYROLL & STATUTORY */}
+      {activeTab === 'PAYROLL' && (
+        <form onSubmit={handleSave} className="space-y-6 animate-fade-in">
+          {/* Statutory PF & ESI Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* PF Settings Card */}
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-7 space-y-5 flex flex-col justify-between">
               <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  Department Management
-                  <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200/80">
-                    {(settings.departments || DEFAULT_DEPARTMENTS).length} Active
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                      PF
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">Provident Fund (PF)</h3>
+                      <p className="text-xs text-slate-500">Calculated on Employee Basic Salary</p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-200/60">
+                    EPFO Compliant
                   </span>
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Manage business units & departments available when registering and profiling employees.
+                </div>
+
+                <div className="space-y-4 pt-5">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Employee Contribution Rate</label>
+                      <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
+                        {(settings.pfEmployeeRate * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="relative rounded-xl shadow-xs">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <Percent className="h-4 w-4" />
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        required
+                        value={Number((settings.pfEmployeeRate * 100).toFixed(4))}
+                        onChange={(e) => setSettings({ ...settings, pfEmployeeRate: (parseFloat(e.target.value) || 0) / 100 })}
+                        className="w-full pl-10 pr-24 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-mono font-medium"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+                        <span className="text-xs text-slate-400 font-medium">% of Basic</span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">Standard statutory employee deduction is typically 12%.</p>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Employer Contribution Rate</label>
+                      <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
+                        {(settings.pfEmployerRate * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="relative rounded-xl shadow-xs">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <Percent className="h-4 w-4" />
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        required
+                        value={Number((settings.pfEmployerRate * 100).toFixed(4))}
+                        onChange={(e) => setSettings({ ...settings, pfEmployerRate: (parseFloat(e.target.value) || 0) / 100 })}
+                        className="w-full pl-10 pr-24 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-mono font-medium"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+                        <span className="text-xs text-slate-400 font-medium">% of Basic</span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">Direct company contribution credited towards employee provident fund.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-start gap-2 text-xs text-slate-600">
+                <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                <span>Deductions update automatically during monthly payroll generation.</span>
+              </div>
+            </div>
+
+            {/* ESI Settings Card */}
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-7 space-y-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                      ESI
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">State Insurance (ESI)</h3>
+                      <p className="text-xs text-slate-500">Calculated on Total Gross Earnings</p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full border border-purple-200/60">
+                    ESIC Standard
+                  </span>
+                </div>
+
+                <div className="space-y-4 pt-5">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Employee Contribution Rate</label>
+                      <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
+                        {(settings.esiEmployeeRate * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="relative rounded-xl shadow-xs">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <Percent className="h-4 w-4" />
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        required
+                        value={Number((settings.esiEmployeeRate * 100).toFixed(4))}
+                        onChange={(e) => setSettings({ ...settings, esiEmployeeRate: (parseFloat(e.target.value) || 0) / 100 })}
+                        className="w-full pl-10 pr-24 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-mono font-medium"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+                        <span className="text-xs text-slate-400 font-medium">% of Gross</span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">Statutory employee health insurance rate is typically 0.75%.</p>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Employer Contribution Rate</label>
+                      <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
+                        {(settings.esiEmployerRate * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="relative rounded-xl shadow-xs">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <Percent className="h-4 w-4" />
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        required
+                        value={Number((settings.esiEmployerRate * 100).toFixed(4))}
+                        onChange={(e) => setSettings({ ...settings, esiEmployerRate: (parseFloat(e.target.value) || 0) / 100 })}
+                        className="w-full pl-10 pr-24 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-mono font-medium"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+                        <span className="text-xs text-slate-400 font-medium">% of Gross</span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">Company insurance contribution rate is typically 3.25%.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-start gap-2 text-xs text-slate-600">
+                <HelpCircle className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                <span>Gross monthly salary exceeding ₹21,000 is automatically exempted from ESI.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Live Statutory Preview Simulator */}
+          <div className="bg-gradient-to-br from-teal-50/70 via-emerald-50/40 to-slate-50 rounded-3xl border border-teal-100 p-6 sm:p-7 space-y-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-xs">
+                  <Calculator className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Live Deduction Simulator</h4>
+                  <p className="text-xs text-slate-500">Preview calculated deductions on sample salary figures</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-600">Sample Gross:</span>
+                <div className="relative w-36">
+                  <span className="absolute inset-y-0 left-3 flex items-center text-xs text-slate-400">₹</span>
+                  <input
+                    type="number"
+                    step="1000"
+                    value={sampleSalary}
+                    onChange={(e) => setSampleSalary(parseFloat(e.target.value) || 0)}
+                    className="w-full pl-7 pr-3 py-2 text-xs font-mono font-bold bg-white rounded-xl border border-teal-200 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-2xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+              <div className="bg-white/90 p-3.5 rounded-2xl border border-teal-100 shadow-2xs">
+                <span className="text-[11px] font-medium text-slate-500">Basic (50%)</span>
+                <p className="text-sm font-bold font-mono text-slate-800 mt-1">₹{sampleBasic.toLocaleString()}</p>
+              </div>
+              <div className="bg-white/90 p-3.5 rounded-2xl border border-teal-100 shadow-2xs">
+                <span className="text-[11px] font-medium text-blue-600">PF (Employee)</span>
+                <p className="text-sm font-bold font-mono text-slate-800 mt-1">₹{simPfEmployee.toFixed(0)}</p>
+              </div>
+              <div className="bg-white/90 p-3.5 rounded-2xl border border-teal-100 shadow-2xs">
+                <span className="text-[11px] font-medium text-purple-600">ESI (Employee)</span>
+                <p className="text-sm font-bold font-mono text-slate-800 mt-1">
+                  {simEsiEmployee > 0 ? `₹${simEsiEmployee.toFixed(0)}` : 'Exempt (>₹21k)'}
+                </p>
+              </div>
+              <div className="bg-white/90 p-3.5 rounded-2xl border border-emerald-200 shadow-2xs">
+                <span className="text-[11px] font-semibold text-emerald-700">Estimated Net Pay</span>
+                <p className="text-sm font-bold font-mono text-emerald-700 mt-1">
+                  ₹{(sampleSalary - simPfEmployee - simEsiEmployee).toLocaleString()}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Quick Add Department Input */}
-          <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-3">
-            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
-              <Plus className="w-4 h-4 text-teal-600" />
-              Add New Department
-            </label>
-            <div className="flex flex-col sm:flex-row gap-2.5">
-              <input
-                type="text"
-                value={newDepartmentInput}
-                onChange={(e) => setNewDepartmentInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddDepartment();
-                  }
-                }}
-                placeholder="e.g. DST, TECH, HR, OGB, KOB, Accounts, Finance, Compliance, Operations..."
-                className="flex-1 px-3.5 py-2.5 text-xs bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-800 font-medium"
-              />
-              <button
-                type="button"
-                onClick={() => handleAddDepartment()}
-                className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95 shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Department</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Department Chips Cloud */}
-          <div className="space-y-2.5">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Configured Departments List
-            </label>
-            <div className="flex flex-wrap items-center gap-2.5 pt-1">
-              {(settings.departments || DEFAULT_DEPARTMENTS).map((dept) => (
-                <div
-                  key={dept}
-                  className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold hover:border-teal-300 hover:bg-teal-50/50 transition-all shadow-2xs"
-                >
-                  <span className="w-2 h-2 rounded-full bg-teal-600"></span>
-                  <span>{dept}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteDepartment(dept)}
-                    className="ml-1 p-0.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                    title={`Remove ${dept}`}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <p className="text-[11px] text-slate-400 pt-1">
-              Changes to departments will be saved when you submit the settings form below.
-            </p>
-          </div>
-        </div>
-
-        {/* Action Controls */}
-        <div className="flex items-center justify-end gap-3 pt-4">
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn-primary px-8 py-3 rounded-xl flex items-center gap-2 text-sm font-semibold shadow-lg shadow-teal-700/20 active:scale-95 transition-all"
-          >
-            {saving ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Saving Changes...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save System Settings
-              </>
-            )}
-          </button>
-        </div>
-      </form>
-
-      {/* Section: Company-Wide Work From Home (WFH) Schedule */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-card space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold shadow-xs">
-              <Home className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                Company-Wide Work From Home (WFH) Schedule
-                <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200/80">
-                  Remote Policy
-                </span>
-              </h2>
-              <p className="text-xs text-slate-500">
-                Declare specific dates when all employees work remotely (e.g. Wednesday & Saturday WFH). Office GPS geofencing is automatically waived on these dates.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <button
-              type="button"
-              onClick={() => setBulkWfhModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Bulk Add Recurring WFH</span>
-            </button>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-              {wfhDaysList.length} {wfhDaysList.length === 1 ? 'Day' : 'Days'} Scheduled
-            </span>
-          </div>
-        </div>
-
-        {/* Add WFH Day Form */}
-        <form onSubmit={handleAddWfhDay} className="bg-slate-50/80 rounded-2xl p-5 border border-slate-200/80 space-y-4">
-          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5 text-indigo-600" />
-            Add Specific Company WFH Date
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Select Date <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                value={wfhDayForm.date}
-                onChange={(e) => setWfhDayForm({ ...wfhDayForm, date: e.target.value })}
-                className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                WFH Title / Label
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Wednesday Team WFH, Saturday Remote"
-                value={wfhDayForm.title}
-                onChange={(e) => setWfhDayForm({ ...wfhDayForm, title: e.target.value })}
-                className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Optional Notes / Remarks</label>
-              <input
-                type="text"
-                placeholder="e.g. Office maintenance / Routine remote day"
-                value={wfhDayForm.description}
-                onChange={(e) => setWfhDayForm({ ...wfhDayForm, description: e.target.value })}
-                className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-1">
+          <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="submit"
-              disabled={submittingWfhDay}
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-60"
+              disabled={saving}
+              className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
             >
-              {submittingWfhDay ? (
-                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Plus className="w-3.5 h-3.5" />
-              )}
-              <span>Add WFH Day</span>
+              <Save className="w-4 h-4" />
+              <span>{saving ? 'Saving Changes...' : 'Save Payroll Rates'}</span>
             </button>
           </div>
         </form>
-
-        {/* WFH Days List */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-            Scheduled Company WFH Dates ({wfhDaysList.length})
-          </h3>
-
-          {loadingWfhDays ? (
-            <div className="py-8 text-center text-slate-400 text-xs">
-              <div className="w-6 h-6 border-2 border-indigo-500/20 border-t-indigo-600 rounded-full animate-spin mx-auto mb-2" />
-              Loading scheduled WFH days...
-            </div>
-          ) : wfhDaysList.length === 0 ? (
-            <div className="py-8 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400">
-              No company-wide WFH days added yet. Use the form above to declare remote days for specific dates or bulk generate weekly recurring WFH days (e.g. Wednesdays & Saturdays).
-            </div>
-          ) : (
-            <div className="overflow-x-auto border border-slate-200/80 rounded-2xl max-h-96 overflow-y-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-200 sticky top-0 bg-slate-50 z-10">
-                  <tr>
-                    <th className="px-4 py-3">Scheduled Date</th>
-                    <th className="px-4 py-3">Day of Week</th>
-                    <th className="px-4 py-3">Title / Reason</th>
-                    <th className="px-4 py-3">Notes</th>
-                    <th className="px-4 py-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {wfhDaysList.map((w) => {
-                    const dateObj = new Date(w.date + 'T00:00:00');
-                    const formattedDate = dateObj.toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    });
-                    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-                    return (
-                      <tr key={w._id || w.date} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-4 py-3.5 font-mono font-bold text-slate-900">{formattedDate}</td>
-                        <td className="px-4 py-3.5">
-                          <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full border ${
-                            dayName === 'Wednesday' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                            dayName === 'Saturday' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                            dayName === 'Friday' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                            'bg-slate-100 text-slate-700 border-slate-200'
-                          }`}>
-                            🏢+🏠 {dayName}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 font-bold text-slate-800">{w.title}</td>
-                        <td className="px-4 py-3.5 text-slate-500">{w.description || 'Entire company works remotely'}</td>
-                        <td className="px-4 py-3.5 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteWfhDay(w._id || w.date)}
-                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Delete WFH day"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Section: Company Holidays Management */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-card space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Company Holidays Calendar</h2>
-              <p className="text-xs text-slate-500">Configure official declared holidays for all employees and payroll</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <button
-              type="button"
-              onClick={() => setBulkModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200/80 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-              <span>Bulk Add Holidays</span>
-            </button>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-              {holidays.length} {holidays.length === 1 ? 'Holiday' : 'Holidays'}
-            </span>
-          </div>
-        </div>
-
-        {/* Add Holiday Form */}
-        <form onSubmit={handleAddHoliday} className="bg-slate-50/80 rounded-2xl p-5 border border-slate-200/80 space-y-4">
-          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5 text-teal-600" />
-            Add New Company Holiday
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Holiday Name <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Diwali, Republic Day"
-                value={holidayForm.name}
-                onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })}
-                className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Date <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                value={holidayForm.date}
-                onChange={(e) => setHolidayForm({ ...holidayForm, date: e.target.value })}
-                className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Holiday Type</label>
-              <select
-                value={holidayForm.type}
-                onChange={(e) => setHolidayForm({ ...holidayForm, type: e.target.value })}
-                className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-              >
-                <option value="FESTIVAL">Festival Holiday</option>
-                <option value="NATIONAL">National Holiday</option>
-                <option value="COMPANY">Company Specific Holiday</option>
-                <option value="OPTIONAL">Optional / Restricted</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Description / Remarks</label>
-              <input
-                type="text"
-                placeholder="Optional notes"
-                value={holidayForm.description}
-                onChange={(e) => setHolidayForm({ ...holidayForm, description: e.target.value })}
-                className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-1">
-            <button
-              type="submit"
-              disabled={submittingHoliday}
-              className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-60"
-            >
-              {submittingHoliday ? (
-                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Plus className="w-3.5 h-3.5" />
-              )}
-              <span>Add Holiday</span>
-            </button>
-          </div>
-        </form>
-
-        {/* Holidays List */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-            Scheduled Holidays ({holidays.length})
-          </h3>
-
-          {loadingHolidays ? (
-            <div className="py-8 text-center text-slate-400 text-xs">
-              <div className="w-6 h-6 border-2 border-teal-500/20 border-t-teal-600 rounded-full animate-spin mx-auto mb-2" />
-              Loading holidays list...
-            </div>
-          ) : holidays.length === 0 ? (
-            <div className="py-8 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400">
-              No company holidays added yet. Use the form above to add holidays to the roster.
-            </div>
-          ) : (
-            <div className="overflow-x-auto border border-slate-200/80 rounded-2xl">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50/80 text-slate-600 font-semibold border-b border-slate-200">
-                  <tr>
-                    <th className="px-4 py-3">Holiday Name</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Notes</th>
-                    <th className="px-4 py-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {holidays.map((h) => {
-                    const formattedDate = new Date(h.date + 'T00:00:00').toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    });
-                    return (
-                      <tr key={h._id || h.date} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-4 py-3.5 font-bold text-slate-900">{h.name}</td>
-                        <td className="px-4 py-3.5 font-mono text-slate-700">{formattedDate}</td>
-                        <td className="px-4 py-3.5">
-                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
-                            h.type === 'NATIONAL' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                            h.type === 'COMPANY' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                            h.type === 'OPTIONAL' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                            'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          }`}>
-                            {h.type || 'FESTIVAL'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-slate-500">{h.description || '-'}</td>
-                        <td className="px-4 py-3.5 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteHoliday(h._id)}
-                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Delete holiday"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Bulk Add WFH Modal with Interactive Calendar Selection */}
       {bulkWfhModalOpen && createPortal(
@@ -1751,9 +1920,9 @@ const AdminSettings = () => {
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
-                      <h4 className="text-xs font-bold text-slate-900 min-w-[140px] text-center">
+                      <span className="text-sm font-bold text-slate-900 min-w-36 text-center">
                         {wfhCalendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                      </h4>
+                      </span>
                       <button
                         type="button"
                         onClick={handleNextWfhMonth}
@@ -1764,173 +1933,137 @@ const AdminSettings = () => {
                       </button>
                     </div>
 
-                    {/* Quick Month Selectors */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Quick day-of-week selection chips */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                      <span className="text-slate-400 font-semibold mr-1">Quick Select:</span>
                       <button
                         type="button"
                         onClick={handleQuickSelectWedAndSat}
-                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-indigo-100/80 hover:bg-indigo-200 text-indigo-800 transition-colors shadow-2xs"
+                        className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-colors"
                       >
-                        + All Wed & Sat
+                        Wed & Sat
                       </button>
                       <button
                         type="button"
                         onClick={() => handleQuickSelectDayOfWeek(3)}
-                        className="px-2 py-1 text-[11px] font-semibold rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors shadow-2xs"
+                        className="px-2 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 font-semibold border border-slate-200 transition-colors"
                       >
                         Wednesdays
                       </button>
                       <button
                         type="button"
                         onClick={() => handleQuickSelectDayOfWeek(6)}
-                        className="px-2 py-1 text-[11px] font-semibold rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors shadow-2xs"
+                        className="px-2 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 font-semibold border border-slate-200 transition-colors"
                       >
                         Saturdays
                       </button>
-                      {selectedWfhDates.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedWfhDates([])}
-                          className="px-2 py-1 text-[11px] font-semibold rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors"
-                        >
-                          Clear
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleQuickSelectDayOfWeek(5)}
+                        className="px-2 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 font-semibold border border-slate-200 transition-colors"
+                      >
+                        Fridays
+                      </button>
                     </div>
                   </div>
 
-                  {/* Calendar Grid */}
-                  <div className="grid grid-cols-7 gap-1.5 text-center">
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, idx) => (
-                      <div
-                        key={dayName}
-                        className={`text-[11px] font-bold py-1 uppercase tracking-wider ${
-                          idx === 2 || idx === 5 ? 'text-indigo-600' : 'text-slate-400'
-                        }`}
-                      >
-                        {dayName}
-                      </div>
-                    ))}
+                  {/* Calendar Grid View */}
+                  <div>
+                    {/* Day Headers (Mon - Sun) */}
+                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-slate-400 pb-1">
+                      <span>Mon</span>
+                      <span>Tue</span>
+                      <span className="text-indigo-600">Wed</span>
+                      <span>Thu</span>
+                      <span>Fri</span>
+                      <span className="text-purple-600">Sat</span>
+                      <span className="text-rose-500">Sun</span>
+                    </div>
 
-                    {calendarDays.map((cell, idx) => {
-                      if (!cell) {
-                        return <div key={`empty-${idx}`} className="h-11 rounded-xl bg-transparent" />;
-                      }
+                    {/* Date Cells */}
+                    <div className="grid grid-cols-7 gap-1 text-xs">
+                      {calendarDays.map((cell, idx) => {
+                        if (!cell) {
+                          return <div key={`empty-${idx}`} className="h-10 rounded-xl bg-transparent" />;
+                        }
 
-                      const isWedOrSat = cell.dayOfWeek === 3 || cell.dayOfWeek === 6;
+                        const { dayNum, dateStr, dayOfWeek, isScheduled, isSelected } = cell;
+                        const isWeekend = dayOfWeek === 0;
 
-                      return (
-                        <button
-                          key={cell.dateStr}
-                          type="button"
-                          onClick={() => handleToggleCalendarDate(cell.dateStr)}
-                          className={`h-11 rounded-xl flex flex-col items-center justify-center relative transition-all border text-xs font-semibold select-none ${
-                            cell.isSelected
-                              ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm ring-2 ring-indigo-400/40 transform scale-[0.98]'
-                              : cell.isScheduled
-                              ? 'bg-indigo-50/80 border-indigo-200 text-indigo-900 hover:bg-indigo-100'
-                              : isWedOrSat
-                              ? 'bg-white border-indigo-100 text-indigo-950 hover:border-indigo-300 hover:bg-indigo-50/30'
-                              : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-0.5">
-                            <span>{cell.dayNum}</span>
-                            {cell.isSelected && <Check className="w-3 h-3 text-white stroke-[3]" />}
-                          </div>
-                          {cell.isScheduled && !cell.isSelected && (
-                            <span className="text-[9px] font-bold text-indigo-600 leading-none">WFH</span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Selected Dates Summary Tray */}
-                <div className="bg-slate-50/60 rounded-2xl p-3 border border-slate-200/70 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
-                      {selectedWfhDates.length} {selectedWfhDates.length === 1 ? 'Date' : 'Dates'} Selected on Calendar:
-                    </span>
-                    {selectedWfhDates.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedWfhDates([])}
-                        className="text-[11px] text-rose-600 hover:underline font-semibold"
-                      >
-                        Clear selection
-                      </button>
-                    )}
-                  </div>
-
-                  {selectedWfhDates.length === 0 ? (
-                    <p className="text-[11px] text-slate-400 italic">
-                      Click any days on the calendar above or use "+ All Wed & Sat" to select company WFH dates.
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
-                      {selectedWfhDates.map((dateStr) => {
-                        const dateObj = new Date(dateStr + 'T00:00:00');
-                        const label = dateObj.toLocaleDateString('en-US', {
-                          weekday: 'short',
-                          month: 'short',
-                          day: 'numeric',
-                        });
                         return (
-                          <span
+                          <button
                             key={dateStr}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-100 text-indigo-800 text-[11px] font-semibold border border-indigo-200"
+                            type="button"
+                            onClick={() => handleToggleCalendarDate(dateStr)}
+                            className={`h-10 rounded-xl text-xs font-bold transition-all relative flex flex-col items-center justify-center ${
+                              isSelected
+                                ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-400'
+                                : isScheduled
+                                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100'
+                                : isWeekend
+                                ? 'bg-slate-100/60 text-slate-400 hover:bg-slate-200/60'
+                                : 'bg-white text-slate-700 border border-slate-200/70 hover:border-indigo-300 hover:bg-indigo-50/40'
+                            }`}
                           >
-                            <span>{label}</span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleCalendarDate(dateStr);
-                              }}
-                              className="hover:text-indigo-950 p-0.5 rounded"
-                              title="Remove date"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </span>
+                            <span>{dayNum}</span>
+                            {isScheduled && !isSelected && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-0.5" />
+                            )}
+                            {isSelected && (
+                              <Check className="w-3 h-3 text-white absolute top-1 right-1" />
+                            )}
+                          </button>
                         );
                       })}
                     </div>
-                  )}
+                  </div>
                 </div>
 
-                {/* Custom Details for the Selected Batch */}
+                {/* Bulk Title & Notes Details */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      WFH Title / Label
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      WFH Event Title
                     </label>
                     <input
                       type="text"
+                      required
                       value={bulkCustomTitle}
                       onChange={(e) => setBulkCustomTitle(e.target.value)}
-                      placeholder="e.g. Wednesday Team WFH"
-                      className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      placeholder="e.g. Wednesday & Saturday WFH"
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Notes / Remarks (Optional)
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Notes / Description
                     </label>
                     <input
                       type="text"
                       value={bulkCustomDesc}
                       onChange={(e) => setBulkCustomDesc(e.target.value)}
-                      placeholder="e.g. Remote work policy"
-                      className="w-full px-3 py-2 text-xs font-medium bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      placeholder="e.g. Scheduled team remote day"
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                     />
                   </div>
                 </div>
 
-                {/* Submit Actions */}
+                <div className="bg-indigo-50/80 p-3 rounded-xl border border-indigo-200/70 flex items-center justify-between text-xs text-indigo-900">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <span>{selectedWfhDates.length} dates selected for addition</span>
+                  </div>
+                  {selectedWfhDates.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedWfhDates([])}
+                      className="text-[11px] font-bold text-rose-600 hover:underline"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
+
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
@@ -1947,17 +2080,15 @@ const AdminSettings = () => {
                     {submittingBulkWfh ? (
                       <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
-                      <Plus className="w-3.5 h-3.5" />
+                      <Sparkles className="w-3.5 h-3.5" />
                     )}
-                    <span>
-                      Add {selectedWfhDates.length} Selected {selectedWfhDates.length === 1 ? 'WFH Day' : 'WFH Days'}
-                    </span>
+                    <span>Save {selectedWfhDates.length} WFH Days</span>
                   </button>
                 </div>
               </form>
             )}
 
-            {/* Tab 2: Automated Yearly Rules */}
+            {/* Tab 2: Auto-Generate Yearly Rules */}
             {bulkWfhTab === 'RULES' && (
               <form onSubmit={handleBulkAddWfhDays} className="space-y-4 overflow-y-auto pr-1 flex-1">
                 <div>
@@ -1975,7 +2106,7 @@ const AdminSettings = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Recurring WFH Rule</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Select Remote Policy Schedule</label>
                   <div className="space-y-2">
                     <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                       bulkWfhRule === 'WEDNESDAYS_AND_SATURDAYS' ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 font-semibold' : 'bg-slate-50/50 border-slate-200 text-slate-700'
@@ -2193,5 +2324,3 @@ const AdminSettings = () => {
 };
 
 export default AdminSettings;
-
-

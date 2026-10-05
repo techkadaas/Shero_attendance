@@ -27,7 +27,7 @@ const getTodayAttendance = async (employeeId: string) => {
 router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const employeeId = req.user!.employeeId;
-    const { latitude, longitude, customTime } = req.body;
+    const { latitude, longitude, customTime, workMode: requestedWorkMode } = req.body;
     const now = new Date();
     const existing = await getTodayAttendance(employeeId);
     if (existing) {
@@ -48,7 +48,13 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
 
     const user = await users().findOne({ employeeId });
     const isWfhToday = !!approvedWfh || !!companyWfhDay;
-    const workMode = isWfhToday ? 'WFH' : (user?.workMode || 'WFO');
+    let workMode = isWfhToday ? 'WFH' : (user?.workMode || 'WFO');
+    // Allow employee to explicitly sign in as WFO (e.g. on a company WFH day when they come into office)
+    if (requestedWorkMode === 'WFO') {
+      workMode = 'WFO';
+    } else if (requestedWorkMode === 'WFH') {
+      workMode = 'WFH';
+    }
     let locationData: any = null;
 
     let checkInTimestamp = now;
@@ -80,24 +86,30 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
       const allowedRadius = (officeLoc && officeLoc.radiusMeters) ? Number(officeLoc.radiusMeters) : 500;
       if (officeLoc && officeLoc.latitude && officeLoc.longitude) {
         if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
-          return res.status(400).json({
-            error: 'Office Location Required: Please enable GPS location to verify sign-in within office premises.',
-          });
+          if (!companyWfhDay) {
+            return res.status(400).json({
+              error: 'Office Location Required: Please enable GPS location to verify sign-in within office premises.',
+            });
+          }
+        } else {
+          const userLat = Number(latitude);
+          const userLon = Number(longitude);
+          if (isNaN(userLat) || isNaN(userLon)) {
+            if (!companyWfhDay) {
+              return res.status(400).json({ error: 'Invalid GPS coordinates provided.' });
+            }
+          } else {
+            const distance = calculateDistanceMeters(userLat, userLon, officeLoc.latitude, officeLoc.longitude);
+            if (distance > allowedRadius && !companyWfhDay) {
+              return res.status(400).json({
+                error: `Outside Office Perimeter: You are ${distance}m away (Allowed radius: ${allowedRadius}m). Please be within 500m of the office to sign in.`,
+                distance,
+                allowedRadius,
+              });
+            }
+            locationData = { latitude: userLat, longitude: userLon, distanceMeters: distance };
+          }
         }
-        const userLat = Number(latitude);
-        const userLon = Number(longitude);
-        if (isNaN(userLat) || isNaN(userLon)) {
-          return res.status(400).json({ error: 'Invalid GPS coordinates provided.' });
-        }
-        const distance = calculateDistanceMeters(userLat, userLon, officeLoc.latitude, officeLoc.longitude);
-        if (distance > allowedRadius) {
-          return res.status(400).json({
-            error: `Outside Office Perimeter: You are ${distance}m away (Allowed radius: ${allowedRadius}m). Please be within 500m of the office to sign in.`,
-            distance,
-            allowedRadius,
-          });
-        }
-        locationData = { latitude: userLat, longitude: userLon, distanceMeters: distance };
       }
     } else if (latitude !== undefined && longitude !== undefined) {
       locationData = { latitude: Number(latitude), longitude: Number(longitude) };

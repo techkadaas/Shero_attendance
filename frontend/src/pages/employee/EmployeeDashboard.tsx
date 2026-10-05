@@ -59,7 +59,7 @@ const EmployeeDashboard = () => {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const todayStr = format(new Date(), 'EEEE, d MMMM yyyy');
-  const workMode = isCompanyWfhDay ? 'WFH' : (attendance?.workMode || user?.workMode || 'WFO');
+  const workMode = attendance?.workMode || (isCompanyWfhDay ? 'WFH' : (user?.workMode || 'WFO'));
 
   return (
     <div className="space-y-6">
@@ -81,6 +81,11 @@ const EmployeeDashboard = () => {
                   <>
                     <span className="text-xs">⚡</span>
                     <span className="text-amber-200">SSC Holiday Shift</span>
+                  </>
+                ) : attendance?.workMode === 'WFO' ? (
+                  <>
+                    <Building2 className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Work from Office (WFO)</span>
                   </>
                 ) : isCompanyWfhDay ? (
                   <>
@@ -151,7 +156,7 @@ const EmployeeDashboard = () => {
                 </span>
               </div>
               <p className="text-xs text-indigo-100/90 leading-snug">
-                Today is scheduled as an official remote day for all employees. Office GPS geofence checks are waived for your sign-in today!
+                Today is scheduled as an official remote day for all employees. If working from home, sign in remotely; if you are at the office today, choose "Sign In on WFO".
               </p>
             </div>
           </div>

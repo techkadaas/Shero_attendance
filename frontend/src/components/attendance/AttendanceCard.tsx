@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { checkIn, stopSession, resumeSession, checkOut, getCustomSignInQuota } from '../../services/attendanceService';
+import React, { useState } from 'react';
+import { checkIn, checkOut } from '../../services/attendanceService';
 import LiveTimer from './LiveTimer';
 import { formatTime, formatDuration } from '../../utils/timeUtils';
 import { useAuth } from '../../context/AuthContext';
-import { LogIn, LogOut, CheckCircle2, Clock, AlertCircle, Building2, Home, X, Check } from 'lucide-react';
+import { LogIn, LogOut, CheckCircle2, Clock, AlertCircle, Building2, Home } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface AttendanceCardProps {
@@ -24,24 +23,9 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Late Sign In / Sign Out modal states
-  const [signInModalOpen, setSignInModalOpen] = useState(false);
-  const [signInMode, setSignInMode] = useState<'NOW' | 'CUSTOM'>('NOW');
-  const [customSignInTime, setCustomSignInTime] = useState('09:30');
-  const [customSignInQuota, setCustomSignInQuota] = useState<{
-    usedCount: number;
-    limit: number;
-    remainingCount: number;
-    canUseCustomSignIn: boolean;
-  }>({ usedCount: 0, limit: 3, remainingCount: 3, canUseCustomSignIn: true });
-
-  const [signOutModalOpen, setSignOutModalOpen] = useState(false);
-  const [signOutMode, setSignOutMode] = useState<'NOW' | 'CUSTOM'>('NOW');
-  const [customSignOutTime, setCustomSignOutTime] = useState('18:30');
-
   const status = attendance?.status || 'NOT_CHECKED_IN';
   const isCompanyRemote = Boolean(isCompanyWfhDay || attendance?.isCompanyWfhDay);
-  const workMode = isCompanyRemote ? 'WFH' : (attendance?.workMode || user?.workMode || 'WFO');
+  const workMode = attendance?.workMode || (isCompanyRemote ? 'WFH' : (user?.workMode || 'WFO'));
   
   const getCoordinates = (): Promise<{ latitude: number; longitude: number } | null> => {
     return new Promise((resolve) => {
@@ -74,64 +58,23 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
     });
   };
 
-  const getCurrentIST = () => {
-    const now = new Date();
-    const parts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Asia/Kolkata',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    }).formatToParts(now);
-    const hours = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
-    const minutes = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
-    const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-    return { hours, minutes, timeStr };
+  // Called when user clicks "SIGN IN"
+  const handleCheckInClick = (selectedMode?: 'WFO' | 'WFH') => {
+    executeCheckIn(selectedMode);
   };
 
-  useEffect(() => {
-    if (status === 'NOT_CHECKED_IN') {
-      getCustomSignInQuota()
-        .then((res) => {
-          if (res) setCustomSignInQuota(res);
-        })
-        .catch(() => {});
-    }
-  }, [status]);
-
-  // Called when user clicks "SIGN IN NOW"
-  const handleCheckInClick = async () => {
-    const { hours, minutes, timeStr } = getCurrentIST();
-    // If after 10:15 AM
-    if (hours > 10 || (hours === 10 && minutes > 15)) {
-      try {
-        const quota = await getCustomSignInQuota();
-        if (quota) {
-          setCustomSignInQuota(quota);
-          if (!quota.canUseCustomSignIn) {
-            // User reached 3-time monthly quota for earlier sign-in -> proceed with current time check-in directly
-            executeCheckIn();
-            return;
-          }
-        }
-      } catch (e) {
-        // Proceed with modal if check fails
-      }
-      setSignInMode('NOW');
-      setCustomSignInTime(timeStr > '10:00' ? '10:00' : '09:30');
-      setSignInModalOpen(true);
-    } else {
-      executeCheckIn();
-    }
-  };
-
-  const executeCheckIn = async (customTime?: string) => {
-    setLoadingAction('Sign In');
+  const executeCheckIn = async (selectedMode?: 'WFO' | 'WFH') => {
+    const actionLabel = selectedMode === 'WFO' ? 'Sign In (WFO)' : selectedMode === 'WFH' ? 'Sign In (WFH)' : 'Sign In';
+    setLoadingAction(actionLabel);
     setError(null);
     try {
       const coords = await getCoordinates();
-      await checkIn(coords || undefined, customTime);
-      toast.success(customTime ? `Signed in successfully at ${customTime}!` : 'Signed in successfully! Have a great day.');
-      setSignInModalOpen(false);
+      await checkIn(coords || undefined, undefined, selectedMode);
+      toast.success(
+        selectedMode === 'WFO'
+          ? 'Signed in successfully at Office (WFO)! Have a great day.'
+          : 'Signed in successfully! Have a great day.'
+      );
       onRefresh();
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Failed to sign in';
@@ -144,24 +87,15 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
 
   // Called when user clicks "SIGN OUT FOR TODAY"
   const handleCheckOutClick = () => {
-    const { hours, minutes, timeStr } = getCurrentIST();
-    // If after 7:10 PM (19:10)
-    if (hours > 19 || (hours === 19 && minutes > 10)) {
-      setSignOutMode('NOW');
-      setCustomSignOutTime('18:30');
-      setSignOutModalOpen(true);
-    } else {
-      executeCheckOut();
-    }
+    executeCheckOut();
   };
 
-  const executeCheckOut = async (customTime?: string) => {
+  const executeCheckOut = async () => {
     setLoadingAction('Sign Out');
     setError(null);
     try {
-      await checkOut(customTime);
-      toast.success(customTime ? `Signed out successfully at ${customTime}. Good work today!` : 'Signed out successfully. Good work today!');
-      setSignOutModalOpen(false);
+      await checkOut();
+      toast.success('Signed out successfully. Good work today!');
       onRefresh();
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Failed to sign out';
@@ -209,8 +143,6 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
     }
   };
 
-  const { timeStr: currentISTTimeStr } = getCurrentIST();
-
   return (
     <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-card hover:shadow-card-hover transition-all duration-200">
       
@@ -224,7 +156,12 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
           <p className="text-xs text-slate-500 mt-0.5">Live work timer and attendance state management</p>
         </div>
         <div className="flex items-center gap-2">
-          {isCompanyRemote ? (
+          {attendance?.workMode === 'WFO' ? (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200">
+              <Building2 className="w-3 h-3 mr-1 text-teal-600" />
+              WFO Office
+            </span>
+          ) : isCompanyRemote ? (
             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs">
               <Home className="w-3 h-3 mr-1 text-indigo-600" />
               Company WFH Day
@@ -265,21 +202,44 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
           <h3 className="text-base font-bold text-slate-900 mb-1">Ready to start your day?</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mb-6">
             {isCompanyRemote
-              ? 'Today is a declared Company-Wide Work From Home day! You can sign in remotely from anywhere.'
+              ? 'Today is an official Company-Wide Work From Home day! You can sign in remotely from home or sign in on WFO if working at the office today.'
               : workMode === 'WFO' 
               ? 'Click below to verify your GPS location at the office and begin tracking your active work hours.'
               : workMode === 'HYBRID'
               ? 'Click below to sign in from anywhere (office or home) and begin tracking your active work hours.'
               : 'Click below to record your official sign-in timestamp and begin tracking your active work hours.'}
           </p>
-          <button
-            onClick={handleCheckInClick}
-            disabled={loadingAction !== null}
-            className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-sm rounded-xl shadow-glow-teal active:scale-[0.98] transition-all inline-flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
-          >
-            <LogIn className="w-4 h-4" />
-            <span>{loadingAction === 'Sign In' ? 'Verifying Location & Signing In...' : 'SIGN IN NOW'}</span>
-          </button>
+
+          {isCompanyRemote ? (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto mx-auto">
+              <button
+                onClick={() => handleCheckInClick('WFH')}
+                disabled={loadingAction !== null}
+                className="w-full sm:w-auto px-7 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-sm rounded-xl shadow-md active:scale-[0.98] transition-all inline-flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
+              >
+                <Home className="w-4 h-4" />
+                <span>{loadingAction === 'Sign In (WFH)' ? 'Signing In Remotely...' : 'SIGN IN (WFH - HOME)'}</span>
+              </button>
+
+              <button
+                onClick={() => handleCheckInClick('WFO')}
+                disabled={loadingAction !== null}
+                className="w-full sm:w-auto px-7 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-sm rounded-xl shadow-glow-teal active:scale-[0.98] transition-all inline-flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>{loadingAction === 'Sign In (WFO)' ? 'Signing In at Office...' : 'SIGN IN ON WFO (OFFICE)'}</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => handleCheckInClick()}
+              disabled={loadingAction !== null}
+              className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-sm rounded-xl shadow-glow-teal active:scale-[0.98] transition-all inline-flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>{loadingAction === 'Sign In' ? 'Verifying Location & Signing In...' : 'SIGN IN NOW'}</span>
+            </button>
+          )}
         </div>
       ) : (
 
@@ -362,218 +322,6 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
         </div>
       )}
 
-      {/* Late Sign In Modal (> 10:15 AM) */}
-      {signInModalOpen && createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100 animate-slide-up space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-                  <Clock className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Sign In Options</h3>
-                  <p className="text-xs text-slate-500">Current time is past 10:15 AM ({currentISTTimeStr})</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSignInModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600">
-              Please choose whether you want to sign in with your current time or enter an earlier sign-in time:
-            </p>
-
-            <div className="space-y-3">
-              <label className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                signInMode === 'NOW' ? 'bg-teal-50/80 border-teal-300 text-teal-950 font-semibold' : 'bg-slate-50/60 border-slate-200 text-slate-700'
-              }`}>
-                <input
-                  type="radio"
-                  name="signInMode"
-                  checked={signInMode === 'NOW'}
-                  onChange={() => setSignInMode('NOW')}
-                  className="mt-0.5 text-teal-600 focus:ring-teal-500"
-                />
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Sign In Now ({currentISTTimeStr})</p>
-                  <p className="text-[11px] text-slate-500">Record check-in at the current exact time.</p>
-                </div>
-              </label>
-
-              {customSignInQuota.canUseCustomSignIn && (
-                <label className={`flex flex-col gap-2 p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                  signInMode === 'CUSTOM' ? 'bg-teal-50/80 border-teal-300 text-teal-950 font-semibold' : 'bg-slate-50/60 border-slate-200 text-slate-700'
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name="signInMode"
-                      checked={signInMode === 'CUSTOM'}
-                      onChange={() => setSignInMode('CUSTOM')}
-                      className="text-teal-600 focus:ring-teal-500"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-900">Choose Sign In Time (Earlier Time)</p>
-                        <span className="text-[10px] font-semibold text-teal-700 bg-teal-100/80 px-2 py-0.5 rounded-full">
-                          {customSignInQuota.remainingCount} left this month
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500">Select when you actually started work today (e.g. 09:30 AM)</p>
-                    </div>
-                  </div>
-
-                  {signInMode === 'CUSTOM' && (
-                    <div className="pt-2 pl-7">
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Select Check-in Time:</label>
-                      <input
-                        type="time"
-                        value={customSignInTime}
-                        max={currentISTTimeStr}
-                        onChange={(e) => setCustomSignInTime(e.target.value)}
-                        className="w-full px-3 py-2 text-xs font-mono font-bold bg-white rounded-xl border border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      />
-                    </div>
-                  )}
-                </label>
-              )}
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setSignInModalOpen(false)}
-                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => executeCheckIn(signInMode === 'CUSTOM' && customSignInQuota.canUseCustomSignIn ? customSignInTime : undefined)}
-                disabled={loadingAction !== null || (signInMode === 'CUSTOM' && customSignInQuota.canUseCustomSignIn && !customSignInTime)}
-                className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-60"
-              >
-                {loadingAction === 'Sign In' ? (
-                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <Check className="w-3.5 h-3.5" />
-                )}
-                <span>{signInMode === 'CUSTOM' && customSignInQuota.canUseCustomSignIn ? `Sign In at ${customSignInTime}` : 'Sign In Now'}</span>
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Late Sign Out Modal (> 07:10 PM / 19:10) */}
-      {signOutModalOpen && createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100 animate-slide-up space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-                  <LogOut className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Sign Out Options</h3>
-                  <p className="text-xs text-slate-500">Current time is past 07:10 PM ({currentISTTimeStr})</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSignOutModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600">
-              Please choose whether you want to sign out with your current time or enter an earlier sign-out time:
-            </p>
-
-            <div className="space-y-3">
-              <label className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                signOutMode === 'NOW' ? 'bg-teal-50/80 border-teal-300 text-teal-950 font-semibold' : 'bg-slate-50/60 border-slate-200 text-slate-700'
-              }`}>
-                <input
-                  type="radio"
-                  name="signOutMode"
-                  checked={signOutMode === 'NOW'}
-                  onChange={() => setSignOutMode('NOW')}
-                  className="mt-0.5 text-teal-600 focus:ring-teal-500"
-                />
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Sign Out Now ({currentISTTimeStr})</p>
-                  <p className="text-[11px] text-slate-500">Record check-out at the current exact time.</p>
-                </div>
-              </label>
-
-              <label className={`flex flex-col gap-2 p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                signOutMode === 'CUSTOM' ? 'bg-teal-50/80 border-teal-300 text-teal-950 font-semibold' : 'bg-slate-50/60 border-slate-200 text-slate-700'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    name="signOutMode"
-                    checked={signOutMode === 'CUSTOM'}
-                    onChange={() => setSignOutMode('CUSTOM')}
-                    className="text-teal-600 focus:ring-teal-500"
-                  />
-                  <div>
-                    <p className="text-xs font-bold text-slate-900">Choose Sign Out Time (Earlier Time)</p>
-                    <p className="text-[11px] text-slate-500">Select when you actually finished work today (e.g. 06:30 PM / 18:30)</p>
-                  </div>
-                </div>
-
-                {signOutMode === 'CUSTOM' && (
-                  <div className="pt-2 pl-7">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Select Check-out Time:</label>
-                    <input
-                      type="time"
-                      value={customSignOutTime}
-                      max={currentISTTimeStr}
-                      onChange={(e) => setCustomSignOutTime(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-mono font-bold bg-white rounded-xl border border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
-                )}
-              </label>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setSignOutModalOpen(false)}
-                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => executeCheckOut(signOutMode === 'CUSTOM' ? customSignOutTime : undefined)}
-                disabled={loadingAction !== null || (signOutMode === 'CUSTOM' && !customSignOutTime)}
-                className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-60"
-              >
-                {loadingAction === 'Sign Out' ? (
-                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <Check className="w-3.5 h-3.5" />
-                )}
-                <span>{signOutMode === 'CUSTOM' ? `Sign Out at ${customSignOutTime}` : 'Sign Out Now'}</span>
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
 
     </div>
   );

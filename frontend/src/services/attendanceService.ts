@@ -10,7 +10,11 @@ export const getCustomSignInQuota = async () => {
   return response.data;
 };
 
-export const checkIn = async (location?: { latitude?: number; longitude?: number }, customTime?: string) => {
+export const checkIn = async (
+  location?: { latitude?: number; longitude?: number }, 
+  customTime?: string, 
+  workMode?: string
+) => {
   const payload: any = {};
   if (location && location.latitude !== undefined && location.longitude !== undefined) {
     payload.latitude = location.latitude;
@@ -18,6 +22,9 @@ export const checkIn = async (location?: { latitude?: number; longitude?: number
   }
   if (customTime) {
     payload.customTime = customTime;
+  }
+  if (workMode) {
+    payload.workMode = workMode;
   }
   const response = await api.post('/attendance/check-in', payload);
   return response.data;

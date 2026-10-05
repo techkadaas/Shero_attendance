@@ -29,7 +29,8 @@ import {
   AlertTriangle,
   FileUp,
   RefreshCw,
-  FileText
+  FileText,
+  Filter
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -63,6 +64,7 @@ const AdminEmployees = () => {
     status: 'ACTIVE',
     workMode: 'WFO',
     isSsc: false,
+    roleType: 'ON_ROLE',
     reportingManagerId: '',
     basicSalary: '',
     grossSalary: '',
@@ -366,6 +368,7 @@ const AdminEmployees = () => {
         status: emp.status || 'ACTIVE',
         workMode: emp.workMode || 'WFO',
         isSsc: Boolean(emp.isSsc),
+        roleType: emp.roleType || emp.employmentType || 'ON_ROLE',
         reportingManagerId: emp.reportingManager?.id || emp.reportingManagerId || '',
         basicSalary: emp.basicSalary !== undefined ? String(emp.basicSalary) : '',
         grossSalary: emp.grossSalary !== undefined ? String(emp.grossSalary) : '',
@@ -403,6 +406,8 @@ const AdminEmployees = () => {
     else if (statusFilter === 'WFH') matchesStatus = emp.workMode === 'WFH';
     else if (statusFilter === 'HYBRID') matchesStatus = emp.workMode === 'HYBRID';
     else if (statusFilter === 'SSC') matchesStatus = Boolean(emp.isSsc);
+    else if (statusFilter === 'ON_ROLE') matchesStatus = emp.roleType !== 'OFF_ROLE' && emp.employmentType !== 'OFF_ROLE';
+    else if (statusFilter === 'OFF_ROLE') matchesStatus = emp.roleType === 'OFF_ROLE' || emp.employmentType === 'OFF_ROLE';
     else if (statusFilter !== 'ALL') matchesStatus = emp.status === statusFilter;
 
     return matchesSearch && matchesDept && matchesStatus;
@@ -470,32 +475,24 @@ const AdminEmployees = () => {
           </div>
         </div>
 
-        <div className="flex items-center space-x-1 overflow-x-auto w-full sm:w-auto">
-          {['ALL', 'WFO', 'WFH', 'HYBRID', 'SSC', 'ACTIVE', 'STOPPED', 'INACTIVE'].map((st) => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                statusFilter === st
-                  ? 'bg-teal-600 text-white shadow-sm'
-                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              {st === 'ALL'
-                ? `All (${employees.length})`
-                : st === 'WFO'
-                ? `🏢 WFO Office`
-                : st === 'WFH'
-                ? `🏠 WFH Remote`
-                : st === 'HYBRID'
-                ? `🏢+🏠 Hybrid`
-                : st === 'SSC'
-                ? `⚡ SSC Employee`
-                : st === 'STOPPED'
-                ? 'On Leave'
-                : st}
-            </button>
-          ))}
+        <div className="relative w-full sm:w-56">
+          <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
+          >
+            <option value="ALL">All Employees ({employees.length})</option>
+            <option value="WFO">🏢 WFO Office</option>
+            <option value="WFH">🏠 WFH Remote</option>
+            <option value="HYBRID">🏢+🏠 Hybrid</option>
+            <option value="SSC">⚡ SSC Employee</option>
+            <option value="ON_ROLE">On-role</option>
+            <option value="OFF_ROLE">Off-role</option>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="STOPPED">On Leave</option>
+            <option value="INACTIVE">INACTIVE</option>
+          </select>
         </div>
       </div>
 
@@ -865,11 +862,18 @@ const AdminEmployees = () => {
                       ))}
                     </select>
                   </div>
-                  <div className="sm:col-span-2">
+                  <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status</label>
                     <select name="status" value={form.status} onChange={handleChange} className="form-input text-xs">
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Role Type</label>
+                    <select name="roleType" value={form.roleType} onChange={handleChange} className="form-input text-xs">
+                      <option value="ON_ROLE">On-role</option>
+                      <option value="OFF_ROLE">Off-role</option>
                     </select>
                   </div>
                 </div>
@@ -1074,6 +1078,13 @@ const AdminEmployees = () => {
                     <select name="status" value={editModal.form.status} onChange={handleEditChange} className="form-input text-xs">
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Role Type</label>
+                    <select name="roleType" value={editModal.form.roleType} onChange={handleEditChange} className="form-input text-xs">
+                      <option value="ON_ROLE">On-role</option>
+                      <option value="OFF_ROLE">Off-role</option>
                     </select>
                   </div>
                   <div className="sm:col-span-2">

@@ -471,6 +471,8 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       status = 'ACTIVE',
       workMode = 'WFO',
       isSsc = false,
+      roleType = 'ON_ROLE',
+      employmentType,
       basicSalary,
       grossSalary,
       pfApplicable,
@@ -492,6 +494,10 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
     }
     const passwordHash = await bcrypt.hash(password, 10);
     const validWorkMode = ['WFO', 'WFH', 'HYBRID'].includes(workMode) ? workMode : 'WFO';
+    const incomingType = String(roleType || employmentType || 'ON_ROLE').trim().toUpperCase();
+    const validRoleType = ['OFF_ROLE', 'OFF_ROLL', 'OFF-ROLE', 'OFF-ROLL', 'OFF ROLE', 'OFF ROLL'].includes(incomingType)
+      ? 'OFF_ROLE'
+      : 'ON_ROLE';
     const result = await users().insertOne({
       name,
       email,
@@ -502,6 +508,8 @@ router.post('/employees', async (req: AuthRequest, res: Response) => {
       status,
       workMode: validWorkMode,
       isSsc: Boolean(isSsc),
+      roleType: validRoleType,
+      employmentType: validRoleType,
       reportingManagerId: reportingManagerId ? reportingManagerId.toString() : null,
       basicSalary: basicSalary ? Number(basicSalary) : 0,
       grossSalary: grossSalary ? Number(grossSalary) : 0,
@@ -604,6 +612,8 @@ router.post('/employees/bulk-import', async (req: AuthRequest, res: Response) =>
         }
       }
 
+      const rawRoleType = String(row.roleType || row.employmentType || row['Role Type'] || row['Employment Type'] || 'ON_ROLE').trim().toUpperCase();
+      const roleType = ['OFF_ROLE', 'OFF_ROLL', 'OFF-ROLE', 'OFF-ROLL', 'OFF ROLE', 'OFF ROLL'].includes(rawRoleType) ? 'OFF_ROLE' : 'ON_ROLE';
       const passwordHash = await bcrypt.hash(rawPassword, 10);
 
       toInsert.push({
@@ -616,6 +626,8 @@ router.post('/employees/bulk-import', async (req: AuthRequest, res: Response) =>
         status,
         workMode,
         isSsc,
+        roleType,
+        employmentType: roleType,
         reportingManagerId,
         basicSalary: row.basicSalary ? Number(row.basicSalary) : 0,
         grossSalary: row.grossSalary ? Number(row.grossSalary) : 0,
@@ -658,6 +670,8 @@ router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
       status,
       workMode,
       isSsc,
+      roleType,
+      employmentType,
       reportingManagerId,
       basicSalary,
       grossSalary,
@@ -712,6 +726,15 @@ router.put('/employees/:id', async (req: AuthRequest, res: Response) => {
 
     if (isSsc !== undefined) {
       updateFields.isSsc = Boolean(isSsc);
+    }
+
+    if (roleType !== undefined || employmentType !== undefined) {
+      const incomingType = String(roleType !== undefined ? roleType : employmentType).trim().toUpperCase();
+      const validRoleType = ['OFF_ROLE', 'OFF_ROLL', 'OFF-ROLE', 'OFF-ROLL', 'OFF ROLE', 'OFF ROLL'].includes(incomingType)
+        ? 'OFF_ROLE'
+        : 'ON_ROLE';
+      updateFields.roleType = validRoleType;
+      updateFields.employmentType = validRoleType;
     }
 
     if (reportingManagerId !== undefined) {

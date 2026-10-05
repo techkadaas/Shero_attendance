@@ -54,6 +54,7 @@ export const AdminEmployeeDetail = () => {
     department: '',
     status: 'ACTIVE',
     workMode: 'WFO',
+    roleType: 'ON_ROLE',
     reportingManagerId: '',
     basicSalary: '',
     grossSalary: '',
@@ -85,6 +86,7 @@ export const AdminEmployeeDetail = () => {
         department: emp.department || '',
         status: emp.status || 'ACTIVE',
         workMode: emp.workMode || 'WFO',
+        roleType: emp.roleType || emp.employmentType || 'ON_ROLE',
         reportingManagerId: emp.reportingManager?.id || emp.reportingManagerId || '',
         basicSalary: emp.basicSalary !== undefined ? String(emp.basicSalary) : '',
         grossSalary: emp.grossSalary !== undefined ? String(emp.grossSalary) : '',
@@ -523,6 +525,17 @@ export const AdminEmployeeDetail = () => {
                     >
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Role Type</label>
+                    <select
+                      value={editForm.roleType}
+                      onChange={(e) => setEditForm({ ...editForm, roleType: e.target.value })}
+                      className="form-input text-xs"
+                    >
+                      <option value="ON_ROLE">On-role</option>
+                      <option value="OFF_ROLE">Off-role</option>
                     </select>
                   </div>
                   <div className="sm:col-span-2">
