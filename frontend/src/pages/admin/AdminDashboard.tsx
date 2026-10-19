@@ -3,9 +3,20 @@ import { createPortal } from 'react-dom';
 import api from '../../services/api';
 import { formatDuration, formatTime, formatTime12 } from '../../utils/timeUtils';
 import { format } from 'date-fns';
-import { UserCheck, UserX, Users, Clock, LogOut, Loader2, Clock4, Settings2, X, Sparkles, Calendar, Pencil } from 'lucide-react';
+import { UserCheck, UserX, Users, Clock, LogOut, Loader2, Clock4, Settings2, X, Sparkles, Calendar, Pencil, Inbox } from 'lucide-react';
 import LiveTimer from '../../components/attendance/LiveTimer';
 import toast from 'react-hot-toast';
+
+const EmptyRow = ({ colSpan, message }: { colSpan: number; message: string }) => (
+  <tr>
+    <td colSpan={colSpan} className="px-6 py-12 text-center">
+      <div className="flex flex-col items-center gap-2 text-slate-400">
+        <Inbox className="w-6 h-6" />
+        <span className="text-xs font-medium">{message}</span>
+      </div>
+    </td>
+  </tr>
+);
 
 const getLastResumeTime = (events: any[]) => {
   if (!events || !Array.isArray(events)) return undefined;
@@ -119,7 +130,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const [activeFilter, setActiveFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'PERMISSIONS' | 'LEAVE' | 'SIGNED_OUT'>('ALL');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'PERMISSIONS' | 'LEAVE' | 'WFH_LEAVE' | 'WFO_LEAVE' | 'SIGNED_OUT'>('ALL');
 
   const SummaryCard = ({ title, value, filterType, icon: Icon, colorClass, bgClass, ringClass }: any) => {
     const isSelected = activeFilter === filterType;
@@ -164,6 +175,9 @@ const AdminDashboard = () => {
 
   const absentList = summary?.absentList || [];
   const permissionList = summary?.permissionList || [];
+  const wfhLeaveList = absentList.filter((emp: any) => (emp.workMode || 'WFO') === 'WFH');
+  const wfoLeaveList = absentList.filter((emp: any) => (emp.workMode || 'WFO') === 'WFO');
+  const currentLeaveList = activeFilter === 'WFH_LEAVE' ? wfhLeaveList : activeFilter === 'WFO_LEAVE' ? wfoLeaveList : absentList;
 
   return (
     <div className="space-y-6">
@@ -171,8 +185,12 @@ const AdminDashboard = () => {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-card">
         <div>
           <div className="inline-flex items-center space-x-1.5 bg-teal-50 px-2.5 py-0.5 rounded-full text-xs font-bold text-teal-700 border border-teal-100 mb-1.5">
-            <Sparkles className="w-3 h-3 text-teal-600" />
-            <span>Real-time Operational Telemetry</span>
+            {loading && summary ? (
+              <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" title="Refreshing live data…" />
+            ) : (
+              <Sparkles className="w-3 h-3 text-teal-600" />
+            )}
+            <span>{loading && summary ? 'Updating…' : 'Real-time Operational Telemetry'}</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Executive Attendance Hub</h1>
           <p className="text-xs text-slate-500 mt-0.5">Live headcount monitoring, shift timings, and active logs</p>
@@ -198,12 +216,14 @@ const AdminDashboard = () => {
             </button>
           </div>
 
-          <div className="relative">
+          <div className="relative flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl px-3.5 py-2.5 transition-all">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <input
               type="date"
+              aria-label="Viewing attendance for date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-xs font-bold text-slate-800 py-2.5 px-3.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer font-mono"
+              className="appearance-none bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer font-mono"
             />
           </div>
         </div>
@@ -215,53 +235,88 @@ const AdminDashboard = () => {
         </div>
       ) : (
         <>
-          {/* Interactive Metric Telemetry Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-            <SummaryCard 
-              title="Present" 
-              value={summary?.present || 0} 
-              filterType="PRESENT" 
-              icon={UserCheck} 
-              colorClass="text-emerald-600" 
-              bgClass="bg-emerald-50" 
-              ringClass="ring-emerald-500" 
+          {/* Primary Metric Telemetry Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <SummaryCard
+              title="Present"
+              value={summary?.present || 0}
+              filterType="PRESENT"
+              icon={UserCheck}
+              colorClass="text-emerald-600"
+              bgClass="bg-emerald-50"
+              ringClass="ring-emerald-500"
             />
-            <SummaryCard 
-              title="Late Today" 
-              value={summary?.lateToday || 0} 
-              filterType="LATE" 
-              icon={Clock} 
-              colorClass="text-amber-600" 
-              bgClass="bg-amber-50" 
-              ringClass="ring-amber-500" 
+            <SummaryCard
+              title="Late Today"
+              value={summary?.lateToday || 0}
+              filterType="LATE"
+              icon={Clock}
+              colorClass="text-amber-600"
+              bgClass="bg-amber-50"
+              ringClass="ring-amber-500"
             />
-            <SummaryCard 
-              title="Permissions" 
-              value={summary?.permissionCount || 0} 
-              filterType="PERMISSIONS" 
-              icon={Clock4} 
-              colorClass="text-indigo-600" 
-              bgClass="bg-indigo-50" 
-              ringClass="ring-indigo-500" 
+            <SummaryCard
+              title="Permissions"
+              value={summary?.permissionCount || 0}
+              filterType="PERMISSIONS"
+              icon={Clock4}
+              colorClass="text-indigo-600"
+              bgClass="bg-indigo-50"
+              ringClass="ring-indigo-500"
             />
-            <SummaryCard 
-              title="On Leave" 
-              value={summary?.absent || 0} 
-              filterType="LEAVE" 
-              icon={UserX} 
-              colorClass="text-rose-600" 
-              bgClass="bg-rose-50" 
-              ringClass="ring-rose-500" 
+            <SummaryCard
+              title="Signed Out"
+              value={summary?.checkedOut || 0}
+              filterType="SIGNED_OUT"
+              icon={LogOut}
+              colorClass="text-slate-600"
+              bgClass="bg-slate-100"
+              ringClass="ring-slate-500"
             />
-            <SummaryCard 
-              title="Signed Out" 
-              value={summary?.checkedOut || 0} 
-              filterType="SIGNED_OUT" 
-              icon={LogOut} 
-              colorClass="text-slate-600" 
-              bgClass="bg-slate-100" 
-              ringClass="ring-slate-500" 
-            />
+          </div>
+
+          {/* Leave Breakdown: "On Leave" is the parent metric, WFH/WFO are its sub-totals — grouped in one panel so the relationship is visible at a glance */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-card overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setActiveFilter(activeFilter === 'LEAVE' ? 'ALL' : 'LEAVE')}
+              className="w-full flex items-center justify-between p-5 text-left group hover:bg-rose-50/30 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-rose-50 group-hover:scale-105 transition-transform">
+                  <UserX className="w-5 h-5 text-rose-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">On Leave Today</p>
+                  <p className="text-2xl font-extrabold text-slate-900 tracking-tight font-mono">{summary?.absent || 0}</p>
+                </div>
+              </div>
+              <span className="text-[10px] text-slate-400 font-medium group-hover:text-teal-600 transition-colors hidden sm:inline">
+                {activeFilter === 'LEAVE' ? 'Click to reset' : 'Click to view full list'}
+              </span>
+            </button>
+            <div className="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setActiveFilter(activeFilter === 'WFH_LEAVE' ? 'ALL' : 'WFH_LEAVE')}
+                className={`flex items-center justify-between px-5 py-3 text-left transition-colors ${
+                  activeFilter === 'WFH_LEAVE' ? 'bg-indigo-50/70' : 'hover:bg-slate-50'
+                }`}
+              >
+                <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">↳ WFH Leave</span>
+                <span className="text-sm font-extrabold text-slate-900 font-mono">{wfhLeaveList.length}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFilter(activeFilter === 'WFO_LEAVE' ? 'ALL' : 'WFO_LEAVE')}
+                className={`flex items-center justify-between px-5 py-3 text-left transition-colors ${
+                  activeFilter === 'WFO_LEAVE' ? 'bg-teal-50/70' : 'hover:bg-slate-50'
+                }`}
+              >
+                <span className="text-[11px] font-bold text-teal-700 uppercase tracking-wider">↳ WFO Leave</span>
+                <span className="text-sm font-extrabold text-slate-900 font-mono">{wfoLeaveList.length}</span>
+              </button>
+            </div>
           </div>
 
           {/* Active Filter Status Bar */}
@@ -271,9 +326,9 @@ const AdminDashboard = () => {
                 <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
                 <span className="text-xs font-semibold text-slate-300">
                   Showing list for: <strong className="text-white uppercase tracking-wider">{activeFilter.replace('_', ' ')}</strong>
-                  {activeFilter === 'LEAVE' && ` (${absentList.length} staff)`}
+                  {(activeFilter === 'LEAVE' || activeFilter === 'WFH_LEAVE' || activeFilter === 'WFO_LEAVE') && ` (${currentLeaveList.length} staff)`}
                   {activeFilter === 'PERMISSIONS' && ` (${permissionList.length} staff)`}
-                  {activeFilter !== 'LEAVE' && activeFilter !== 'PERMISSIONS' && ` (${displayedAttendance.length} staff)`}
+                  {activeFilter !== 'LEAVE' && activeFilter !== 'WFH_LEAVE' && activeFilter !== 'WFO_LEAVE' && activeFilter !== 'PERMISSIONS' && ` (${displayedAttendance.length} staff)`}
                 </span>
               </div>
               <button
@@ -288,13 +343,13 @@ const AdminDashboard = () => {
           )}
 
           {/* VIEW: ON LEAVE / ABSENT EMPLOYEES */}
-          {activeFilter === 'LEAVE' ? (
+          {(activeFilter === 'LEAVE' || activeFilter === 'WFH_LEAVE' || activeFilter === 'WFO_LEAVE') ? (
             <div className="bg-white shadow-card rounded-3xl border border-slate-200/80 overflow-hidden animate-fade-in">
               <div className="px-6 py-4 border-b border-slate-100 bg-rose-50/40 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <UserX className="w-4 h-4 text-rose-600" />
                   <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    Staff On Leave / Absent Today ({absentList.length})
+                    {activeFilter === 'WFH_LEAVE' ? 'WFH Staff On Leave Today' : activeFilter === 'WFO_LEAVE' ? 'WFO Staff On Leave Today' : 'Staff On Leave / Absent Today'} ({currentLeaveList.length})
                   </h3>
                 </div>
               </div>
@@ -310,14 +365,10 @@ const AdminDashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {absentList.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">
-                          All active employees are present today! No staff on leave.
-                        </td>
-                      </tr>
+                    {currentLeaveList.length === 0 ? (
+                      <EmptyRow colSpan={4} message="No staff on leave today." />
                     ) : (
-                      absentList.map((emp: any) => (
+                      currentLeaveList.map((emp: any) => (
                         <tr key={emp.employeeId} className="hover:bg-slate-50/80 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center space-x-3">
@@ -372,11 +423,7 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {permissionList.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">
-                          No permissions or WFH requests recorded for this date.
-                        </td>
-                      </tr>
+                      <EmptyRow colSpan={4} message="No permissions or WFH requests for this date." />
                     ) : (
                       permissionList.map((p: any) => (
                         <tr key={p._id} className="hover:bg-slate-50/80 transition-colors">
@@ -440,11 +487,7 @@ const AdminDashboard = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {displayedAttendance.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">
-                            No matching employee attendance found for this selection.
-                          </td>
-                        </tr>
+                        <EmptyRow colSpan={5} message="No attendance records match this selection." />
                       ) : (
                         displayedAttendance.map((record) => (
                           <tr key={record._id} className="hover:bg-slate-50/80 transition-colors">

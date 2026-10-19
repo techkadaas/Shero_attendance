@@ -52,9 +52,11 @@ export const AdminEmployeeDetail = () => {
     password: '',
     employeeId: '',
     department: '',
+    designation: '',
+    dateOfBirth: '',
     status: 'ACTIVE',
     workMode: 'WFO',
-    roleType: 'ON_ROLE',
+    rollType: 'ON_ROLL',
     reportingManagerId: '',
     basicSalary: '',
     grossSalary: '',
@@ -84,9 +86,11 @@ export const AdminEmployeeDetail = () => {
         password: '',
         employeeId: emp.employeeId || '',
         department: emp.department || '',
+        designation: emp.designation || '',
+        dateOfBirth: emp.dateOfBirth || '',
         status: emp.status || 'ACTIVE',
         workMode: emp.workMode || 'WFO',
-        roleType: emp.roleType || emp.employmentType || 'ON_ROLE',
+        rollType: emp.rollType || emp.roleType || emp.employmentType || 'ON_ROLL',
         reportingManagerId: emp.reportingManager?.id || emp.reportingManagerId || '',
         basicSalary: emp.basicSalary !== undefined ? String(emp.basicSalary) : '',
         grossSalary: emp.grossSalary !== undefined ? String(emp.grossSalary) : '',
@@ -203,6 +207,16 @@ export const AdminEmployeeDetail = () => {
                   <span className="flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
                     <Briefcase className="w-3.5 h-3.5 text-teal-600" />
                     {emp.department}
+                  </span>
+                )}
+                {emp.designation && (
+                  <span className="flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+                    {emp.designation}
+                  </span>
+                )}
+                {emp.dateOfBirth && (
+                  <span className="flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+                    🎂 {emp.dateOfBirth}
                   </span>
                 )}
                 <span className="flex items-center gap-1">
@@ -517,6 +531,25 @@ export const AdminEmployeeDetail = () => {
                     </select>
                   </div>
                   <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Designation</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Software Engineer"
+                      value={editForm.designation}
+                      onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
+                      className="form-input text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
+                    <input
+                      type="date"
+                      value={editForm.dateOfBirth}
+                      onChange={(e) => setEditForm({ ...editForm, dateOfBirth: e.target.value })}
+                      className="form-input text-xs"
+                    />
+                  </div>
+                  <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status</label>
                     <select
                       value={editForm.status}
@@ -528,14 +561,14 @@ export const AdminEmployeeDetail = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Role Type</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Roll Type</label>
                     <select
-                      value={editForm.roleType}
-                      onChange={(e) => setEditForm({ ...editForm, roleType: e.target.value })}
+                      value={editForm.rollType}
+                      onChange={(e) => setEditForm({ ...editForm, rollType: e.target.value })}
                       className="form-input text-xs"
                     >
-                      <option value="ON_ROLE">On-role</option>
-                      <option value="OFF_ROLE">Off-role</option>
+                      <option value="ON_ROLL">On-roll</option>
+                      <option value="OFF_ROLL">Off-roll</option>
                     </select>
                   </div>
                   <div className="sm:col-span-2">

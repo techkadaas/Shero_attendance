@@ -54,3 +54,8 @@ export const getMonthlyAttendance = async (month: number, year: number) => {
   const response = await api.get('/attendance/monthly', { params: { month, year } });
   return response.data;
 };
+
+export const getAttendanceByRange = async (startDate: string, endDate: string) => {
+  const response = await api.get('/attendance/monthly', { params: { startDate, endDate } });
+  return response.data;
+};

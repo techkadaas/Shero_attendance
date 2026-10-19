@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { Calendar, UserCheck, AlertTriangle, Clock, ArrowLeft, ChevronDown, Search, Users, User, X } from 'lucide-react';
 import LiveTimer from '../../components/attendance/LiveTimer';
 import toast from 'react-hot-toast';
+import DateRangeFilter, { type DateRange, getRangeForPreset } from '../../components/common/DateRangeFilter';
 
 const LATE_THRESHOLD_HOUR = 9;
 const LATE_THRESHOLD_MINUTE = 30;
@@ -97,9 +98,7 @@ const AdminEmployeeAttendance = () => {
   const [records, setRecords] = useState<ParsedRecord[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+  const [range, setRange] = useState<DateRange>({ preset: 'THIS_MONTH', ...getRangeForPreset('THIS_MONTH') });
   const [employeeName, setEmployeeName] = useState<string>('');
 
   // Switcher state
@@ -138,8 +137,8 @@ const AdminEmployeeAttendance = () => {
       const allRecords: any[] = res.data;
       
       const filtered = allRecords.filter(r => {
-        const d = new Date(r.date);
-        return d.getMonth() + 1 === month && d.getFullYear() === year;
+        const d = format(new Date(r.date), 'yyyy-MM-dd');
+        return d >= range.startDate && d <= range.endDate;
       });
 
       const parsed: ParsedRecord[] = filtered.map((rec: any) => {
@@ -166,7 +165,7 @@ const AdminEmployeeAttendance = () => {
     fetchHistory();
     const timer = setInterval(() => setNowTick(new Date()), 60000);
     return () => clearInterval(timer);
-  }, [id, month, year]);
+  }, [id, range.startDate, range.endDate]);
 
   const daysPresent = records.length;
   const daysLate = records.filter(r => r.displayStatus === 'Late').length;
@@ -304,31 +303,8 @@ const AdminEmployeeAttendance = () => {
             )}
           </div>
 
-          {/* Month / Year Selectors */}
-          <div className="relative">
-            <select
-              value={month}
-              onChange={(e) => setMonth(Number(e.target.value))}
-              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2.5 pl-3.5 pr-8 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
-            >
-              {MONTHS.map((m, i) => (
-                <option key={i + 1} value={i + 1}>{m}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-
-          <div className="relative">
-            <select
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2.5 pl-3.5 pr-8 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
-            >
-              <option value={now.getFullYear() - 1}>{now.getFullYear() - 1}</option>
-              <option value={now.getFullYear()}>{now.getFullYear()}</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          {/* Date Range Filter */}
+          <DateRangeFilter value={range} onChange={setRange} />
         </div>
       </div>
 
@@ -364,7 +340,7 @@ const AdminEmployeeAttendance = () => {
               ) : records.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">
-                    No attendance records found for {MONTHS[month - 1]} {year}.
+                    No attendance records found for the selected date range.
                   </td>
                 </tr>
               ) : (
@@ -408,7 +384,7 @@ const AdminEmployeeAttendance = () => {
           </div>
         ) : records.length === 0 ? (
           <div className="bg-white rounded-3xl p-8 text-center text-slate-400 text-xs border border-slate-200 shadow-card">
-            No attendance records found for {MONTHS[month - 1]} {year}.
+            No attendance records found for the selected date range.
           </div>
         ) : (
           records.map((record) => (

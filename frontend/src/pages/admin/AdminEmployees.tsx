@@ -61,10 +61,12 @@ const AdminEmployees = () => {
     password: '',
     employeeId: '',
     department: '',
+    designation: '',
+    dateOfBirth: '',
     status: 'ACTIVE',
     workMode: 'WFO',
     isSsc: false,
-    roleType: 'ON_ROLE',
+    rollType: 'ON_ROLL',
     reportingManagerId: '',
     basicSalary: '',
     grossSalary: '',
@@ -365,10 +367,12 @@ const AdminEmployees = () => {
         password: '',
         employeeId: emp.employeeId || '',
         department: emp.department || '',
+        designation: emp.designation || '',
+        dateOfBirth: emp.dateOfBirth || '',
         status: emp.status || 'ACTIVE',
         workMode: emp.workMode || 'WFO',
         isSsc: Boolean(emp.isSsc),
-        roleType: emp.roleType || emp.employmentType || 'ON_ROLE',
+        rollType: emp.rollType || emp.roleType || emp.employmentType || 'ON_ROLL',
         reportingManagerId: emp.reportingManager?.id || emp.reportingManagerId || '',
         basicSalary: emp.basicSalary !== undefined ? String(emp.basicSalary) : '',
         grossSalary: emp.grossSalary !== undefined ? String(emp.grossSalary) : '',
@@ -406,8 +410,8 @@ const AdminEmployees = () => {
     else if (statusFilter === 'WFH') matchesStatus = emp.workMode === 'WFH';
     else if (statusFilter === 'HYBRID') matchesStatus = emp.workMode === 'HYBRID';
     else if (statusFilter === 'SSC') matchesStatus = Boolean(emp.isSsc);
-    else if (statusFilter === 'ON_ROLE') matchesStatus = emp.roleType !== 'OFF_ROLE' && emp.employmentType !== 'OFF_ROLE';
-    else if (statusFilter === 'OFF_ROLE') matchesStatus = emp.roleType === 'OFF_ROLE' || emp.employmentType === 'OFF_ROLE';
+    else if (statusFilter === 'ON_ROLL') matchesStatus = !['OFF_ROLL', 'OFF_ROLE'].includes(emp.rollType) && !['OFF_ROLL', 'OFF_ROLE'].includes(emp.roleType) && !['OFF_ROLL', 'OFF_ROLE'].includes(emp.employmentType);
+    else if (statusFilter === 'OFF_ROLL') matchesStatus = ['OFF_ROLL', 'OFF_ROLE'].includes(emp.rollType) || ['OFF_ROLL', 'OFF_ROLE'].includes(emp.roleType) || ['OFF_ROLL', 'OFF_ROLE'].includes(emp.employmentType);
     else if (statusFilter !== 'ALL') matchesStatus = emp.status === statusFilter;
 
     return matchesSearch && matchesDept && matchesStatus;
@@ -487,8 +491,8 @@ const AdminEmployees = () => {
             <option value="WFH">🏠 WFH Remote</option>
             <option value="HYBRID">🏢+🏠 Hybrid</option>
             <option value="SSC">⚡ SSC Employee</option>
-            <option value="ON_ROLE">On-role</option>
-            <option value="OFF_ROLE">Off-role</option>
+            <option value="ON_ROLL">On-roll</option>
+            <option value="OFF_ROLL">Off-roll</option>
             <option value="ACTIVE">ACTIVE</option>
             <option value="STOPPED">On Leave</option>
             <option value="INACTIVE">INACTIVE</option>
@@ -531,6 +535,7 @@ const AdminEmployees = () => {
                         <div>
                           <p className="text-xs font-bold text-slate-900 group-hover:text-teal-700 transition-colors">{emp.name}</p>
                           <p className="text-[10px] text-slate-400">{emp.email}</p>
+                          {emp.designation && <p className="text-[10px] text-teal-600 font-semibold">{emp.designation}</p>}
                         </div>
                       </Link>
                     </td>
@@ -863,6 +868,14 @@ const AdminEmployees = () => {
                     </select>
                   </div>
                   <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Designation</label>
+                    <input name="designation" placeholder="e.g. Software Engineer" type="text" value={form.designation} onChange={handleChange} className="form-input text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
+                    <input name="dateOfBirth" type="date" value={form.dateOfBirth} onChange={handleChange} className="form-input text-xs" />
+                  </div>
+                  <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status</label>
                     <select name="status" value={form.status} onChange={handleChange} className="form-input text-xs">
                       <option value="ACTIVE">ACTIVE</option>
@@ -870,10 +883,10 @@ const AdminEmployees = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Role Type</label>
-                    <select name="roleType" value={form.roleType} onChange={handleChange} className="form-input text-xs">
-                      <option value="ON_ROLE">On-role</option>
-                      <option value="OFF_ROLE">Off-role</option>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Roll Type</label>
+                    <select name="rollType" value={form.rollType} onChange={handleChange} className="form-input text-xs">
+                      <option value="ON_ROLL">On-roll</option>
+                      <option value="OFF_ROLL">Off-roll</option>
                     </select>
                   </div>
                 </div>
@@ -1074,6 +1087,14 @@ const AdminEmployees = () => {
                     </select>
                   </div>
                   <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Designation</label>
+                    <input name="designation" placeholder="e.g. Software Engineer" type="text" value={editModal.form.designation} onChange={handleEditChange} className="form-input text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
+                    <input name="dateOfBirth" type="date" value={editModal.form.dateOfBirth} onChange={handleEditChange} className="form-input text-xs" />
+                  </div>
+                  <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status</label>
                     <select name="status" value={editModal.form.status} onChange={handleEditChange} className="form-input text-xs">
                       <option value="ACTIVE">ACTIVE</option>
@@ -1081,10 +1102,10 @@ const AdminEmployees = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Role Type</label>
-                    <select name="roleType" value={editModal.form.roleType} onChange={handleEditChange} className="form-input text-xs">
-                      <option value="ON_ROLE">On-role</option>
-                      <option value="OFF_ROLE">Off-role</option>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Roll Type</label>
+                    <select name="rollType" value={editModal.form.rollType} onChange={handleEditChange} className="form-input text-xs">
+                      <option value="ON_ROLL">On-roll</option>
+                      <option value="OFF_ROLL">Off-roll</option>
                     </select>
                   </div>
                   <div className="sm:col-span-2">

@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { 
-  Settings, 
-  Percent, 
-  Clock, 
-  ShieldCheck, 
-  HelpCircle, 
-  Save, 
-  RefreshCw, 
+import * as XLSX from 'xlsx';
+import {
+  Settings,
+  Percent,
+  Clock,
+  ShieldCheck,
+  HelpCircle,
+  Save,
+  RefreshCw,
   Calculator,
   AlertCircle,
   MapPin,
@@ -30,7 +32,11 @@ import {
   ChevronRight,
   Check,
   SlidersHorizontal,
-  CheckCircle2
+  CheckCircle2,
+  Download,
+  UploadCloud,
+  FileSpreadsheet,
+  AlertTriangle
 } from 'lucide-react';
 
 interface Holiday {
@@ -61,8 +67,18 @@ const DEFAULT_DEPARTMENTS = [
 
 type SettingsTab = 'TIMINGS' | 'GEOFENCE' | 'WFH' | 'HOLIDAYS' | 'DEPARTMENTS' | 'PAYROLL';
 
+const VALID_TABS: SettingsTab[] = ['TIMINGS', 'GEOFENCE', 'WFH', 'HOLIDAYS', 'DEPARTMENTS', 'PAYROLL'];
+
 const AdminSettings = () => {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('TIMINGS');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab')?.toUpperCase();
+  const [activeTab, setActiveTabState] = useState<SettingsTab>(
+    VALID_TABS.includes(tabFromUrl as SettingsTab) ? (tabFromUrl as SettingsTab) : 'TIMINGS'
+  );
+  const setActiveTab = (tab: SettingsTab) => {
+    setActiveTabState(tab);
+    setSearchParams({ tab: tab.toLowerCase() }, { replace: true });
+  };
 
   const [settings, setSettings] = useState({
     pfEmployeeRate: 0.12,
@@ -152,9 +168,15 @@ const AdminSettings = () => {
 
   // Bulk Holiday Modal State
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkModalTab, setBulkModalTab] = useState<'RULE' | 'EXCEL'>('RULE');
   const [bulkYear, setBulkYear] = useState(new Date().getFullYear());
   const [bulkRule, setBulkRule] = useState<'SUNDAYS' | 'SATURDAYS_2_4'>('SUNDAYS');
   const [submittingBulk, setSubmittingBulk] = useState(false);
+
+  // Holiday Excel Import State
+  const [holidayExcelRows, setHolidayExcelRows] = useState<any[]>([]);
+  const [holidayExcelFileName, setHolidayExcelFileName] = useState('');
+  const [importingHolidayExcel, setImportingHolidayExcel] = useState(false);
 
   // Company WFH Schedule State
   const [wfhDaysList, setWfhDaysList] = useState<WfhDay[]>([]);
@@ -376,6 +398,109 @@ const AdminSettings = () => {
     }
   };
 
+  const handleDownloadHolidaySample = () => {
+    const sampleData = [
+      { 'Holiday Name': 'Republic Day', 'Date': '2026-01-26', 'Type': 'NATIONAL', 'Description': 'National Holiday' },
+      { 'Holiday Name': 'Diwali', 'Date': '2026-11-08', 'Type': 'FESTIVAL', 'Description': 'Festival of Lights' },
+    ];
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Holidays');
+    XLSX.writeFile(wb, 'Shero_Holiday_Import_Template.xlsx');
+  };
+
+  const handleHolidayExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data: any[] = XLSX.utils.sheet_to_json(ws);
+
+        if (!data || data.length === 0) {
+          toast.error('The uploaded Excel file appears to be empty.');
+          return;
+        }
+
+        const VALID_TYPES = ['NATIONAL', 'FESTIVAL', 'COMPANY', 'OPTIONAL'];
+        const parsedRows = data.map((row, idx) => {
+          const findField = (...names: string[]) => {
+            for (const key of Object.keys(row)) {
+              const cleanKey = key.trim().toLowerCase().replace(/[\s_\-.]+/g, '');
+              for (const name of names) {
+                const cleanName = name.toLowerCase().replace(/[\s_\-.]+/g, '');
+                if (cleanKey === cleanName) return row[key];
+              }
+            }
+            return undefined;
+          };
+
+          const name = String(findField('Holiday Name', 'Name', 'Holiday', 'Title') || '').trim();
+          const rawDate = findField('Date', 'Holiday Date');
+          let date = '';
+          if (rawDate instanceof Date) {
+            date = rawDate.toISOString().split('T')[0];
+          } else if (typeof rawDate === 'number') {
+            const parsed = XLSX.SSF.parse_date_code(rawDate);
+            if (parsed) date = `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+          } else if (rawDate) {
+            const parsedDate = new Date(String(rawDate).trim());
+            date = !isNaN(parsedDate.getTime()) ? parsedDate.toISOString().split('T')[0] : String(rawDate).trim();
+          }
+          const typeRaw = String(findField('Type', 'Holiday Type') || 'COMPANY').trim().toUpperCase();
+          const type = VALID_TYPES.includes(typeRaw) ? typeRaw : 'COMPANY';
+          const description = String(findField('Description', 'Notes', 'Remarks') || '').trim();
+
+          const errors: string[] = [];
+          if (!name) errors.push('Holiday name missing');
+          if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) errors.push('Invalid or missing date (expected YYYY-MM-DD)');
+
+          return { id: idx + 1, name, date, type, description, isValid: errors.length === 0, errors };
+        });
+
+        setHolidayExcelRows(parsedRows);
+        setHolidayExcelFileName(file.name);
+        toast.success(`Successfully loaded ${parsedRows.length} rows from ${file.name}`);
+      } catch (error) {
+        console.error('Failed to parse holiday Excel file', error);
+        toast.error('Failed to read Excel file. Please ensure it is a valid .xlsx or .csv file.');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleImportHolidayExcel = async () => {
+    const validRows = holidayExcelRows.filter((r) => r.isValid);
+    if (validRows.length === 0) {
+      toast.error('No valid rows found to import.');
+      return;
+    }
+    setImportingHolidayExcel(true);
+    try {
+      const res = await api.post('/admin/holidays/bulk', {
+        items: validRows.map((r) => ({ name: r.name, date: r.date, type: r.type, description: r.description })),
+      });
+      toast.success(res.data.message || 'Holidays imported successfully!');
+      if (Array.isArray(res.data.holidays)) {
+        setHolidays(res.data.holidays);
+      } else {
+        await fetchHolidays();
+      }
+      setHolidayExcelRows([]);
+      setHolidayExcelFileName('');
+      setBulkModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to import holidays');
+    } finally {
+      setImportingHolidayExcel(false);
+    }
+  };
+
   const fetchHolidays = async () => {
     try {
       setLoadingHolidays(true);
@@ -583,6 +708,7 @@ const AdminSettings = () => {
       icon: Clock,
       badge: `${settings.officeStartTime} - ${settings.officeEndTime}`,
       badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
+      autosave: false,
     },
     {
       id: 'GEOFENCE' as SettingsTab,
@@ -590,6 +716,7 @@ const AdminSettings = () => {
       icon: MapPin,
       badge: `${settings.officeLocation.radiusMeters}m Radius`,
       badgeColor: 'bg-teal-50 text-teal-700 border-teal-200',
+      autosave: false,
     },
     {
       id: 'WFH' as SettingsTab,
@@ -597,6 +724,7 @@ const AdminSettings = () => {
       icon: Home,
       badge: `${wfhDaysList.length} Scheduled`,
       badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      autosave: true,
     },
     {
       id: 'HOLIDAYS' as SettingsTab,
@@ -604,6 +732,7 @@ const AdminSettings = () => {
       icon: Calendar,
       badge: `${holidays.length} Holidays`,
       badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      autosave: true,
     },
     {
       id: 'DEPARTMENTS' as SettingsTab,
@@ -611,6 +740,7 @@ const AdminSettings = () => {
       icon: Briefcase,
       badge: `${(settings.departments || DEFAULT_DEPARTMENTS).length} Units`,
       badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+      autosave: false,
     },
     {
       id: 'PAYROLL' as SettingsTab,
@@ -618,6 +748,7 @@ const AdminSettings = () => {
       icon: Calculator,
       badge: `PF ${(settings.pfEmployeeRate * 100).toFixed(0)}% / ESI ${(settings.esiEmployeeRate * 100).toFixed(2)}%`,
       badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
+      autosave: false,
     },
   ];
 
@@ -657,7 +788,12 @@ const AdminSettings = () => {
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Reset</span>
           </button>
-          {['TIMINGS', 'GEOFENCE', 'PAYROLL', 'DEPARTMENTS'].includes(activeTab) && (
+          {tabs.find((t) => t.id === activeTab)?.autosave ? (
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-300 text-xs font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              Changes save instantly
+            </span>
+          ) : (
             <button
               type="button"
               onClick={() => handleSave()}
@@ -700,7 +836,7 @@ const AdminSettings = () => {
                 <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                 <span>{tab.label}</span>
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${
+                  className={`hidden xl:inline text-[10px] px-2 py-0.5 rounded-full border transition-all whitespace-nowrap ${
                     isActive
                       ? 'bg-teal-700/80 text-teal-100 border-teal-500/50'
                       : tab.badgeColor
@@ -2214,15 +2350,15 @@ const AdminSettings = () => {
       {/* Bulk Add Holidays Modal */}
       {bulkModalOpen && createPortal(
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100 animate-slide-up space-y-5">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-100 animate-slide-up space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
                   <Layers className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Bulk Generate Holidays</h3>
-                  <p className="text-xs text-slate-500">Add weekly recurring off days at once</p>
+                  <h3 className="text-base font-bold text-slate-900">Bulk Add Holidays</h3>
+                  <p className="text-xs text-slate-500">Generate recurring off days or import from Excel</p>
                 </div>
               </div>
               <button
@@ -2234,6 +2370,103 @@ const AdminSettings = () => {
               </button>
             </div>
 
+            <div className="flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/70">
+              <button
+                type="button"
+                onClick={() => setBulkModalTab('RULE')}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  bulkModalTab === 'RULE' ? 'bg-white text-teal-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Recurring Rule
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkModalTab('EXCEL')}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  bulkModalTab === 'EXCEL' ? 'bg-white text-teal-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Upload Excel
+              </button>
+            </div>
+
+            {bulkModalTab === 'EXCEL' ? (
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  onClick={handleDownloadHolidaySample}
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download Sample Template
+                </button>
+
+                <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 hover:border-teal-400 rounded-2xl p-6 cursor-pointer transition-colors bg-slate-50/50">
+                  <UploadCloud className="w-6 h-6 text-teal-600" />
+                  <span className="text-xs font-semibold text-slate-700">
+                    {holidayExcelFileName || 'Click to upload .xlsx, .xls or .csv'}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    className="hidden"
+                    onChange={handleHolidayExcelUpload}
+                  />
+                </label>
+
+                {holidayExcelRows.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                      <span className="flex items-center gap-1.5">
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-teal-600" />
+                        {holidayExcelRows.filter((r) => r.isValid).length} valid / {holidayExcelRows.length} rows
+                      </span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
+                      {holidayExcelRows.map((r) => (
+                        <div key={r.id} className="px-3 py-2 flex items-center justify-between text-[11px]">
+                          <div>
+                            <p className="font-bold text-slate-800">{r.name || '(no name)'}</p>
+                            <p className="text-slate-400">{r.date || '(no date)'} • {r.type}</p>
+                          </div>
+                          {r.isValid ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          ) : (
+                            <span className="flex items-center gap-1 text-rose-600 shrink-0" title={r.errors.join(', ')}>
+                              <AlertTriangle className="w-4 h-4" />
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => { setBulkModalOpen(false); setHolidayExcelRows([]); setHolidayExcelFileName(''); }}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleImportHolidayExcel}
+                    disabled={importingHolidayExcel || holidayExcelRows.filter((r) => r.isValid).length === 0}
+                    className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-60"
+                  >
+                    {importingHolidayExcel ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <UploadCloud className="w-3.5 h-3.5" />
+                    )}
+                    <span>Import Holidays</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
             <form onSubmit={handleBulkAddHolidays} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Target Year</label>
@@ -2315,6 +2548,7 @@ const AdminSettings = () => {
                 </button>
               </div>
             </form>
+            )}
           </div>
         </div>,
         document.body

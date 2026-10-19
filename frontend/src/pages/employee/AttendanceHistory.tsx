@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getMonthlyAttendance } from '../../services/attendanceService';
+import { getAttendanceByRange } from '../../services/attendanceService';
 import api from '../../services/api';
 import { formatTime, formatDuration } from '../../utils/timeUtils';
 import { format } from 'date-fns';
 import { Calendar, UserCheck, UserX, AlertTriangle, Clock, ChevronDown, CalendarDays, Palmtree, Sparkles } from 'lucide-react';
 import LiveTimer from '../../components/attendance/LiveTimer';
+import DateRangeFilter, { type DateRange, getRangeForPreset } from '../../components/common/DateRangeFilter';
 
 const LATE_THRESHOLD_HOUR = 9;
 const LATE_THRESHOLD_MINUTE = 30;
@@ -107,15 +108,13 @@ const AttendanceHistory = () => {
   const [leaveDaysYear, setLeaveDaysYear] = useState(0);
   const [activeTab, setActiveTab] = useState<'LOGS' | 'HOLIDAYS'>('LOGS');
   const [loading, setLoading] = useState(true);
-  const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+  const [range, setRange] = useState<DateRange>({ preset: 'THIS_MONTH', ...getRangeForPreset('THIS_MONTH') });
 
   const fetchHistoryAndHolidays = async () => {
     try {
       setLoading(true);
       const [attData, holidayRes, leaveRes] = await Promise.all([
-        getMonthlyAttendance(month, year),
+        getAttendanceByRange(range.startDate, range.endDate),
         api.get('/attendance/holidays').catch(() => ({ data: [] })),
         api.get('/attendance/leave-summary').catch(() => ({ data: { totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 } })),
       ]);
@@ -142,7 +141,7 @@ const AttendanceHistory = () => {
     fetchHistoryAndHolidays();
     const timer = setInterval(() => setNowTick(new Date()), 60000);
     return () => clearInterval(timer);
-  }, [month, year]);
+  }, [range.startDate, range.endDate]);
 
   const daysPresent = records.length;
   const daysLate = records.filter(r => r.displayStatus === 'Late').length;
@@ -208,32 +207,7 @@ const AttendanceHistory = () => {
           </div>
 
           {activeTab === 'LOGS' && (
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <select
-                  value={month}
-                  onChange={(e) => setMonth(Number(e.target.value))}
-                  className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2 pl-3 pr-7 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
-                >
-                  {MONTHS.map((m, i) => (
-                    <option key={i + 1} value={i + 1}>{m}</option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-
-              <div className="relative">
-                <select
-                  value={year}
-                  onChange={(e) => setYear(Number(e.target.value))}
-                  className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2 pl-3 pr-7 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
-                >
-                  <option value={now.getFullYear() - 1}>{now.getFullYear() - 1}</option>
-                  <option value={now.getFullYear()}>{now.getFullYear()}</option>
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
+            <DateRangeFilter value={range} onChange={setRange} />
           )}
         </div>
       </div>
@@ -338,7 +312,7 @@ const AttendanceHistory = () => {
               ) : records.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-xs font-medium">
-                    No attendance records found for {MONTHS[month - 1]} {year}.
+                    No attendance records found for the selected date range.
                   </td>
                 </tr>
               ) : (
@@ -382,7 +356,7 @@ const AttendanceHistory = () => {
           </div>
         ) : records.length === 0 ? (
           <div className="bg-white rounded-3xl p-8 text-center text-slate-400 text-xs border border-slate-200 shadow-card">
-            No records found for {MONTHS[month - 1]} {year}.
+            No records found for the selected date range.
           </div>
         ) : (
           records.map((record) => (

@@ -320,9 +320,12 @@ router.get('/wfh-days', authenticateToken, async (req: AuthRequest, res: Respons
 router.get('/monthly', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const employeeId = req.user!.employeeId;
-    const { month, year } = req.query as any;
+    const { month, year, startDate: rangeStart, endDate: rangeEnd } = req.query as any;
     let startDate: Date, endDate: Date;
-    if (month && year) {
+    if (rangeStart && rangeEnd) {
+      startDate = new Date(`${rangeStart}T00:00:00`);
+      endDate = new Date(`${rangeEnd}T23:59:59`);
+    } else if (month && year) {
       startDate = new Date(Number(year), Number(month) - 1, 1);
       endDate = new Date(Number(year), Number(month), 0, 23, 59, 59);
     } else {
