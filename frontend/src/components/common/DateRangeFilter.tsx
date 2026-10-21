@@ -9,6 +9,7 @@ export type DateRangePreset =
   | 'THIS_MONTH'
   | 'LAST_MONTH'
   | 'LAST_3_MONTHS'
+  | 'LAST_6_MONTHS'
   | 'CUSTOM';
 
 export interface DateRange {
@@ -26,6 +27,7 @@ export const PRESET_LABELS: Record<DateRangePreset, string> = {
   THIS_MONTH: 'This Month',
   LAST_MONTH: 'Last Month',
   LAST_3_MONTHS: 'Last 3 Months',
+  LAST_6_MONTHS: 'Last 6 Months',
   CUSTOM: 'Custom Range',
 };
 
@@ -48,6 +50,8 @@ export const getRangeForPreset = (preset: DateRangePreset, customStart?: string,
     }
     case 'LAST_3_MONTHS':
       return { startDate: fmt(startOfMonth(subMonths(now, 2))), endDate: fmt(endOfMonth(now)) };
+    case 'LAST_6_MONTHS':
+      return { startDate: fmt(startOfMonth(subMonths(now, 5))), endDate: fmt(endOfMonth(now)) };
     case 'CUSTOM':
       return { startDate: customStart || fmt(now), endDate: customEnd || fmt(now) };
     default:
@@ -60,7 +64,7 @@ interface DateRangeFilterProps {
   onChange: (range: DateRange) => void;
 }
 
-const PRESET_ORDER: DateRangePreset[] = ['TODAY', 'YESTERDAY', 'THIS_WEEK', 'THIS_MONTH', 'LAST_MONTH', 'LAST_3_MONTHS', 'CUSTOM'];
+const PRESET_ORDER: DateRangePreset[] = ['TODAY', 'YESTERDAY', 'THIS_WEEK', 'THIS_MONTH', 'LAST_MONTH', 'LAST_3_MONTHS', 'LAST_6_MONTHS', 'CUSTOM'];
 
 const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ value, onChange }) => {
   const [open, setOpen] = useState(false);
@@ -95,7 +99,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ value, onChange }) =>
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-60 bg-white border border-slate-200 rounded-2xl shadow-lg z-20 p-2">
+        <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-lg z-20 p-2 max-h-[80vh] overflow-y-auto">
           {PRESET_ORDER.filter((p) => p !== 'CUSTOM').map((preset) => (
             <button
               key={preset}

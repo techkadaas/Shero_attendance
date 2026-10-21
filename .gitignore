@@ -26,6 +26,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# User-uploaded files (leave attachments, etc.)
+backend/uploads/
+*/uploads/
+
 # OS / Editor Files
 .DS_Store
 Thumbs.db

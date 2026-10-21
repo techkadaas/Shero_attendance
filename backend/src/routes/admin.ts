@@ -203,6 +203,7 @@ const handleDashboardSummary = async (req: AuthRequest, res: Response) => {
         employeeId: p.employeeId,
         name: user?.name || p.employeeId,
         email: user?.email,
+        workMode: user?.workMode || 'WFO',
         requestType: p.requestType,
         reason: p.reason,
         status: p.status,

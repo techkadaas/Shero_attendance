@@ -38,7 +38,18 @@ export const calculateDuration = (startTime: string, endTime: string) => {
   return { decimalHours, formatted, diffMins };
 };
 
-export const submitPermission = async (payload: PermissionRequestPayload) => {
+export const submitPermission = async (payload: PermissionRequestPayload, attachment?: File | null) => {
+  if (attachment) {
+    const formData = new FormData();
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value !== undefined) formData.append(key, String(value));
+    });
+    formData.append('attachment', attachment);
+    const response = await api.post('/permissions', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
   const response = await api.post('/permissions', payload);
   return response.data;
 };

@@ -34,7 +34,8 @@ const EmployeeDashboard = () => {
         setAttendance(fallbackAtt);
       }
 
-      setHolidays(Array.isArray(holidayRes.data) ? holidayRes.data : (holidayRes.data?.holidays || []));
+      const allHolidays = Array.isArray(holidayRes.data) ? holidayRes.data : (holidayRes.data?.holidays || []);
+      setHolidays(allHolidays.filter((h: any) => new Date(h.date + 'T00:00:00').getDay() !== 0));
       setLeaveSummary(leaveRes.data || { totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 });
     } catch (error) {
       console.error('Failed to fetch dashboard data', error);

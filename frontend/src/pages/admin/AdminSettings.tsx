@@ -80,6 +80,13 @@ const AdminSettings = () => {
     setSearchParams({ tab: tab.toLowerCase() }, { replace: true });
   };
 
+  // Keep activeTab in sync when navigation (e.g. the sidebar's Settings dropdown) changes the URL externally
+  useEffect(() => {
+    if (VALID_TABS.includes(tabFromUrl as SettingsTab) && tabFromUrl !== activeTab) {
+      setActiveTabState(tabFromUrl as SettingsTab);
+    }
+  }, [tabFromUrl]);
+
   const [settings, setSettings] = useState({
     pfEmployeeRate: 0.12,
     pfEmployerRate: 0.12,
@@ -813,40 +820,6 @@ const AdminSettings = () => {
               )}
             </button>
           )}
-        </div>
-      </div>
-
-      {/* Tabs Navigation Bar */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-1.5 shadow-xs sticky top-3 z-30 backdrop-blur-md bg-white/95">
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
-                  isActive
-                    ? 'bg-teal-600 text-white shadow-sm shadow-teal-600/20'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                <span>{tab.label}</span>
-                <span
-                  className={`hidden xl:inline text-[10px] px-2 py-0.5 rounded-full border transition-all whitespace-nowrap ${
-                    isActive
-                      ? 'bg-teal-700/80 text-teal-100 border-teal-500/50'
-                      : tab.badgeColor
-                  }`}
-                >
-                  {tab.badge}
-                </span>
-              </button>
-            );
-          })}
         </div>
       </div>
 

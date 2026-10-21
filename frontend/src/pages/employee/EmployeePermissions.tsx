@@ -53,6 +53,14 @@ const EmployeePermissions = () => {
     requestType: isSsc ? 'WEEK_OFF' : (user?.workMode === 'WFO' ? 'WFH' : 'PERMISSION'),
   });
   const [submitting, setSubmitting] = useState(false);
+  const [attachment, setAttachment] = useState<File | null>(null);
+
+  const MONTHLY_FREE_LEAVE_LIMIT = 2;
+  const leaveMonth = form.date.slice(0, 7); // YYYY-MM
+  const leavesTakenThisMonth = myRequests.filter(
+    (r: any) => r.requestType === 'LEAVE' && r.status !== 'REJECTED' && r.date?.startsWith(leaveMonth)
+  ).length;
+  const attachmentRequired = form.requestType === 'LEAVE' && leavesTakenThisMonth >= MONTHLY_FREE_LEAVE_LIMIT;
 
   // Review Modal State
   const [reviewModal, setReviewModal] = useState<{
@@ -115,9 +123,14 @@ const EmployeePermissions = () => {
       }
     }
 
+    if (attachmentRequired && !attachment) {
+      toast.error(`You've already taken ${leavesTakenThisMonth} leave(s) this month. Please attach a supporting document (e.g. medical certificate, marriage invitation).`);
+      return;
+    }
+
     try {
       setSubmitting(true);
-      await submitPermission(submitPayload);
+      await submitPermission(submitPayload, attachment);
       toast.success(
         form.requestType === 'WEEK_OFF'
           ? 'Compensatory Week Off request submitted to your reporting manager!'
@@ -130,6 +143,7 @@ const EmployeePermissions = () => {
       setShowModal(false);
       setDayType('FULL_DAY');
       setHalfDaySlot('FIRST_HALF');
+      setAttachment(null);
       setForm({
         date: todayStr,
         startTime: '09:00',
@@ -762,6 +776,32 @@ const EmployeePermissions = () => {
                   {user?.reportingManager ? `→ ${user.reportingManager.name}` : '→ Admin'}
                 </span>
               </div>
+
+              {/* Leave Attachment: required once the 2 free leaves/month are used up */}
+              {form.requestType === 'LEAVE' && (
+                <div>
+                  <div className={`p-3 rounded-xl border flex items-start gap-2 text-xs mb-2 ${
+                    attachmentRequired ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-slate-50 border-slate-200/80 text-slate-500'
+                  }`}>
+                    <FileText className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>
+                      You've taken <strong>{leavesTakenThisMonth}</strong> leave{leavesTakenThisMonth === 1 ? '' : 's'} in {leaveMonth}.
+                      {attachmentRequired && ' You get 2 free leaves per month — attach a supporting document (e.g. medical certificate, marriage invitation) for this one.'}
+                    </span>
+                  </div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Supporting Document {attachmentRequired && <span className="text-rose-500">*</span>}
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    required={attachmentRequired}
+                    onChange={(e) => setAttachment(e.target.files?.[0] || null)}
+                    className="form-input text-xs"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">PDF, JPG or PNG, up to 5MB.</p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">

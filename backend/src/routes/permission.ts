@@ -1,11 +1,38 @@
 import { Router, Response } from 'express';
 import { ObjectId } from 'mongodb';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { permissions, users, attendances, attendanceEvents, workSessions } from '../mongo';
 import { getTodayRange, getISTTodayString, combineDateAndTimeToISTDate } from '../utils/time';
 
 const router = Router();
 router.use(authenticateToken);
+
+// --- Leave attachment upload (medical certificate, marriage invitation, etc.) ---
+const MONTHLY_FREE_LEAVE_LIMIT = 2;
+const uploadDir = path.join(__dirname, '..', '..', 'uploads', 'leave-attachments');
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const leaveAttachmentUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+      const safeName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      cb(null, `${Date.now()}-${safeName}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.pdf', '.jpg', '.jpeg', '.png'];
+    if (allowed.includes(path.extname(file.originalname).toLowerCase())) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF, JPG and PNG files are allowed for leave attachments'));
+    }
+  },
+}).single('attachment');
 
 // Helper function to calculate duration between HH:mm start and end times
 export const calculateDuration = (startTime: string, endTime: string) => {
@@ -35,26 +62,42 @@ export const calculateDuration = (startTime: string, endTime: string) => {
 };
 
 // --- 1. Request a new permission or WFH (Employee) ---
-router.post('/', async (req: AuthRequest, res: Response) => {
+router.post('/', (req: AuthRequest, res: Response, next) => {
+  leaveAttachmentUpload(req, res, (err: any) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || 'Failed to upload attachment' });
+    }
+    next();
+  });
+}, async (req: AuthRequest, res: Response) => {
+  const uploadedFile = (req as any).file as Express.Multer.File | undefined;
+  const cleanupUpload = () => {
+    if (uploadedFile) fs.unlink(uploadedFile.path, () => {});
+  };
+
   try {
     const userId = req.user?.id;
     if (!userId) {
+      cleanupUpload();
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const { date, startTime, endTime, reason, requestType } = req.body;
 
     if (!date || !startTime || !endTime) {
+      cleanupUpload();
       return res.status(400).json({ error: 'Date, start time, and end time are required' });
     }
 
     const { decimalHours, formatted, diffMins } = calculateDuration(startTime, endTime);
     if (diffMins <= 0) {
+      cleanupUpload();
       return res.status(400).json({ error: 'End time must be after start time' });
     }
 
     const employee = await users().findOne({ _id: new ObjectId(userId) });
     if (!employee) {
+      cleanupUpload();
       return res.status(404).json({ error: 'Employee not found' });
     }
 
@@ -80,10 +123,29 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     if (requestType === 'WEEK_OFF' && !employee.isSsc && employee.workMode !== 'SSC') {
+      cleanupUpload();
       return res.status(400).json({ error: 'Week Off requests are only available for SSC shift employees' });
     }
 
     const type = requestType === 'WFH' ? 'WFH' : (requestType === 'LEAVE' ? 'LEAVE' : (requestType === 'WEEK_OFF' ? 'WEEK_OFF' : 'PERMISSION'));
+
+    const attachmentFile = uploadedFile;
+
+    if (type === 'LEAVE') {
+      const leaveMonth = String(date).slice(0, 7); // YYYY-MM
+      const existingLeavesThisMonth = await permissions().countDocuments({
+        employeeId: employee.employeeId,
+        requestType: 'LEAVE',
+        status: { $ne: 'REJECTED' },
+        date: { $regex: `^${leaveMonth}` },
+      });
+
+      if (existingLeavesThisMonth >= MONTHLY_FREE_LEAVE_LIMIT && !attachmentFile) {
+        return res.status(400).json({
+          error: `You have already taken ${existingLeavesThisMonth} leave(s) this month. Please attach a supporting document (e.g. medical certificate, marriage invitation) to request additional leave.`,
+        });
+      }
+    }
 
     const newPermission = {
       employeeUserId: employee._id,
@@ -99,6 +161,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       totalHours: decimalHours,
       totalHoursFormatted: formatted,
       reason: reason || '',
+      attachmentUrl: attachmentFile ? `/uploads/leave-attachments/${attachmentFile.filename}` : null,
+      attachmentName: attachmentFile ? attachmentFile.originalname : null,
       status: 'PENDING', // 'PENDING' | 'APPROVED' | 'REJECTED'
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -114,6 +178,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Failed to submit permission request:', error);
+    cleanupUpload();
     res.status(500).json({ error: 'Failed to submit permission request' });
   }
 });

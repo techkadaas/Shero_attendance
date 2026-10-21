@@ -335,24 +335,13 @@ export const AttendanceReminderAndPWA: React.FC = () => {
     }
   };
 
+  const showAlertButton = 'Notification' in window && Notification.permission !== 'granted';
+
   return (
     <>
       {/* PWA & Realtime Alert Controls (Shown in header/top) */}
-      <div className="flex items-center gap-2">
-        {!isStandalone && (
-          <button
-            type="button"
-            onClick={handleInstallClick}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
-            title="Install Shero Attendance app on mobile home screen"
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Install Mobile App</span>
-            <span className="sm:hidden">Install App</span>
-          </button>
-        )}
-
-        {'Notification' in window && Notification.permission !== 'granted' && (
+      {showAlertButton && (
+        <div className="bg-white border-b border-slate-200/80 px-4 sm:px-6 py-2 flex justify-end">
           <button
             type="button"
             onClick={triggerTestNotification}
@@ -363,8 +352,8 @@ export const AttendanceReminderAndPWA: React.FC = () => {
             <span className="hidden sm:inline">Enable Mobile Alerts</span>
             <span className="sm:hidden">Alerts</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* iOS Add to Home Screen Instructions Modal */}
       {showIosGuide && createPortal(
