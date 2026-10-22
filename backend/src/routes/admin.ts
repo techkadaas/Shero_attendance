@@ -38,6 +38,7 @@ router.get('/settings', async (req: AuthRequest, res: Response) => {
           radiusMeters: 100,
           address: 'Chennai, Tamil Nadu, India',
         },
+        geofenceEnabled: true,
         departments: DEFAULT_DEPARTMENTS,
       };
       await settings().insertOne(currentSettings);
@@ -63,6 +64,7 @@ router.put('/settings', async (req: AuthRequest, res: Response) => {
       officeEndTime,
       graceMinutes,
       officeLocation,
+      geofenceEnabled,
       departments
     } = req.body;
 
@@ -90,6 +92,7 @@ router.put('/settings', async (req: AuthRequest, res: Response) => {
         address: officeLocation.address || '',
       };
     }
+    if (geofenceEnabled !== undefined) updateDoc.geofenceEnabled = !!geofenceEnabled;
 
     const result = await settings().findOneAndUpdate(
       {},
@@ -206,6 +209,8 @@ const handleDashboardSummary = async (req: AuthRequest, res: Response) => {
         workMode: user?.workMode || 'WFO',
         requestType: p.requestType,
         reason: p.reason,
+        attachmentUrl: p.attachmentUrl || null,
+        attachmentName: p.attachmentName || null,
         status: p.status,
         date: p.date,
         startTime: p.startTime,

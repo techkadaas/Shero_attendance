@@ -80,8 +80,10 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
       checkInTimestamp = combineDateAndTimeToISTDate(todayStr, customTime);
     }
 
-    if (workMode === 'WFO' || workMode === 'SSC') {
-      const currentSettings = await settings().findOne({});
+    const currentSettings = await settings().findOne({});
+    const geofenceEnabled = currentSettings?.geofenceEnabled !== false; // default enabled for backward compat
+
+    if ((workMode === 'WFO' || workMode === 'SSC') && geofenceEnabled) {
       const officeLoc = currentSettings?.officeLocation;
       const allowedRadius = (officeLoc && officeLoc.radiusMeters) ? Number(officeLoc.radiusMeters) : 500;
       if (officeLoc && officeLoc.latitude && officeLoc.longitude) {
@@ -123,7 +125,7 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
       status: 'WORKING',
       workMode,
       location: locationData,
-      isGeofenceVerified: (workMode === 'WFO' || workMode === 'SSC') ? true : false,
+      isGeofenceVerified: (workMode === 'WFO' || workMode === 'SSC') ? geofenceEnabled : false,
       wfhApprovedFromRequest: !!approvedWfh,
       totalWorkingSeconds: 0,
       totalStoppedSeconds: 0,

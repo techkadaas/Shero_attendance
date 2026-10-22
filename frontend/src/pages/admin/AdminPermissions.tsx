@@ -5,6 +5,7 @@ import {
   updatePermissionStatus,
 } from '../../services/permissionService';
 import { formatTime12 } from '../../utils/timeUtils';
+import { getFileUrl } from '../../utils/fileUrl';
 import {
   Clock,
   UserCheck,
@@ -13,7 +14,8 @@ import {
   Clock4,
   X,
   Search,
-  MessageSquare
+  MessageSquare,
+  Paperclip
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -265,8 +267,18 @@ const AdminPermissions = () => {
                         <span className="text-slate-400 italic">Admin (Direct)</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">
-                      {req.reason || <span className="text-slate-400 italic">No reason specified</span>}
+                    <td className="px-6 py-4 text-xs text-slate-600 max-w-xs">
+                      <p className="truncate">{req.reason || <span className="text-slate-400 italic">No reason specified</span>}</p>
+                      {req.attachmentUrl && (
+                        <a
+                          href={getFileUrl(req.attachmentUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 hover:text-teal-800 mt-1"
+                        >
+                          <Paperclip className="w-3 h-3" /> {req.attachmentName || 'View Document'}
+                        </a>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs">
                       {renderStatusBadge(req.status)}
@@ -339,6 +351,17 @@ const AdminPermissions = () => {
                   </span>
                 </div>
               </div>
+
+              {req.attachmentUrl && (
+                <a
+                  href={getFileUrl(req.attachmentUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800"
+                >
+                  <Paperclip className="w-3.5 h-3.5" /> {req.attachmentName || 'View Document'}
+                </a>
+              )}
 
               {req.reason && (
                 <p className="text-xs text-slate-600">

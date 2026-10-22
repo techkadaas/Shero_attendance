@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { formatDuration, formatTime } from '../../utils/timeUtils';
+import { getFileUrl } from '../../utils/fileUrl';
 import { format, subDays } from 'date-fns';
-import { UserCheck, Users, Clock, LogOut, Loader2, Clock4, Sparkles, Inbox, Calendar, ChevronDown } from 'lucide-react';
+import { UserCheck, Users, Clock, LogOut, Loader2, Clock4, Sparkles, Inbox, Calendar, ChevronDown, Paperclip } from 'lucide-react';
 import LiveTimer from '../../components/attendance/LiveTimer';
 
 type DashboardDatePreset = 'TODAY' | 'YESTERDAY' | 'DAY_BEFORE_YESTERDAY' | 'CUSTOM';
@@ -385,6 +386,16 @@ const AdminDashboard = () => {
                               )}
                               <span>{p.reason || 'No reason specified'}</span>
                             </div>
+                            {p.attachmentUrl && (
+                              <a
+                                href={getFileUrl(p.attachmentUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 hover:text-teal-800 mt-1"
+                              >
+                                <Paperclip className="w-3 h-3" /> {p.attachmentName || 'View Document'}
+                              </a>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${

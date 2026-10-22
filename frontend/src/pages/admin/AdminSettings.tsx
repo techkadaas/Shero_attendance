@@ -103,6 +103,7 @@ const AdminSettings = () => {
       radiusMeters: 500,
       address: 'Shero Home Food Head Office',
     },
+    geofenceEnabled: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -583,6 +584,7 @@ const AdminSettings = () => {
           radiusMeters: res.data.officeLocation?.radiusMeters ?? 500,
           address: res.data.officeLocation?.address || 'Shero Home Food Head Office',
         },
+        geofenceEnabled: res.data.geofenceEnabled !== false,
       });
     } catch (error) {
       toast.error('Failed to load settings');
@@ -1072,6 +1074,34 @@ const AdminSettings = () => {
                   {detectingLocation ? 'Detecting GPS...' : 'Auto-Fill Current GPS'}
                 </button>
               </div>
+            </div>
+
+            {/* Geofence Enforcement Toggle */}
+            <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4 ${
+              settings.geofenceEnabled ? 'bg-emerald-50/70 border-emerald-200/80' : 'bg-amber-50/70 border-amber-200/80'
+            }`}>
+              <div>
+                <p className="text-sm font-bold text-slate-900">Enforce Geofence on Sign-In</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {settings.geofenceEnabled
+                    ? 'WFO/SSC employees must be within the office radius below to sign in.'
+                    : 'Geofence is OFF — employees can sign in from any location, regardless of distance from the office.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettings((prev) => ({ ...prev, geofenceEnabled: !prev.geofenceEnabled }))}
+                className={`relative shrink-0 w-12 h-7 rounded-full transition-colors ${
+                  settings.geofenceEnabled ? 'bg-teal-600' : 'bg-slate-300'
+                }`}
+                title={settings.geofenceEnabled ? 'Click to disable geofence enforcement' : 'Click to enable geofence enforcement'}
+              >
+                <span
+                  className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                    settings.geofenceEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
             </div>
 
             {/* Google Maps Quick Link / Coordinates Importer */}

@@ -9,6 +9,7 @@ import {
   calculateDuration,
 } from '../../services/permissionService';
 import { formatTime12 } from '../../utils/timeUtils';
+import { getFileUrl } from '../../utils/fileUrl';
 import {
   Clock,
   Plus,
@@ -20,7 +21,8 @@ import {
   FileText,
   Calendar,
   Send,
-  MessageSquare
+  MessageSquare,
+  Paperclip
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -54,13 +56,30 @@ const EmployeePermissions = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [extraLeaveDates, setExtraLeaveDates] = useState<string[]>([]);
 
   const MONTHLY_FREE_LEAVE_LIMIT = 2;
   const leaveMonth = form.date.slice(0, 7); // YYYY-MM
   const leavesTakenThisMonth = myRequests.filter(
     (r: any) => r.requestType === 'LEAVE' && r.status !== 'REJECTED' && r.date?.startsWith(leaveMonth)
   ).length;
-  const attachmentRequired = form.requestType === 'LEAVE' && leavesTakenThisMonth >= MONTHLY_FREE_LEAVE_LIMIT;
+  const allSelectedLeaveDates = Array.from(new Set([form.date, ...extraLeaveDates].filter(Boolean)));
+  const attachmentRequired = (() => {
+    if (form.requestType !== 'LEAVE') return false;
+    const runningCountByMonth: Record<string, number> = {};
+    myRequests.forEach((r: any) => {
+      if (r.requestType === 'LEAVE' && r.status !== 'REJECTED' && r.date) {
+        const m = r.date.slice(0, 7);
+        runningCountByMonth[m] = (runningCountByMonth[m] || 0) + 1;
+      }
+    });
+    for (const d of allSelectedLeaveDates) {
+      const m = d.slice(0, 7);
+      runningCountByMonth[m] = (runningCountByMonth[m] || 0) + 1;
+      if (runningCountByMonth[m] > MONTHLY_FREE_LEAVE_LIMIT) return true;
+    }
+    return false;
+  })();
 
   // Review Modal State
   const [reviewModal, setReviewModal] = useState<{
@@ -130,20 +149,31 @@ const EmployeePermissions = () => {
 
     try {
       setSubmitting(true);
-      await submitPermission(submitPayload, attachment);
-      toast.success(
-        form.requestType === 'WEEK_OFF'
-          ? 'Compensatory Week Off request submitted to your reporting manager!'
-          : form.requestType === 'WFH'
-          ? 'WFH request submitted to your reporting manager!'
-          : form.requestType === 'LEAVE'
-          ? 'Leave application submitted successfully!'
-          : 'Permission request submitted successfully!'
-      );
+
+      if (form.requestType === 'LEAVE' && allSelectedLeaveDates.length > 1) {
+        // Submit one leave request per selected date, in sequence
+        for (const d of allSelectedLeaveDates) {
+          await submitPermission({ ...submitPayload, date: d }, attachment);
+        }
+        toast.success(`Leave application submitted for ${allSelectedLeaveDates.length} dates!`);
+      } else {
+        await submitPermission(submitPayload, attachment);
+        toast.success(
+          form.requestType === 'WEEK_OFF'
+            ? 'Compensatory Week Off request submitted to your reporting manager!'
+            : form.requestType === 'WFH'
+            ? 'WFH request submitted to your reporting manager!'
+            : form.requestType === 'LEAVE'
+            ? 'Leave application submitted successfully!'
+            : 'Permission request submitted successfully!'
+        );
+      }
+
       setShowModal(false);
       setDayType('FULL_DAY');
       setHalfDaySlot('FIRST_HALF');
       setAttachment(null);
+      setExtraLeaveDates([]);
       setForm({
         date: todayStr,
         startTime: '09:00',
@@ -154,6 +184,7 @@ const EmployeePermissions = () => {
       fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to submit request');
+      fetchData();
     } finally {
       setSubmitting(false);
     }
@@ -393,8 +424,18 @@ const EmployeePermissions = () => {
                               <span className="text-slate-400 italic">Admin</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">
-                            {req.reason || <span className="text-slate-400 italic">No reason provided</span>}
+                          <td className="px-6 py-4 text-xs text-slate-600 max-w-xs">
+                            <p className="truncate">{req.reason || <span className="text-slate-400 italic">No reason provided</span>}</p>
+                            {req.attachmentUrl && (
+                              <a
+                                href={getFileUrl(req.attachmentUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 hover:text-teal-800 mt-1"
+                              >
+                                <Paperclip className="w-3 h-3" /> {req.attachmentName || 'View Document'}
+                              </a>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-xs">
                             {renderStatusBadge(req.status)}
@@ -448,6 +489,16 @@ const EmployeePermissions = () => {
                           <strong>Manager Remark:</strong> {req.managerComment}
                         </p>
                       )}
+                      {req.attachmentUrl && (
+                        <a
+                          href={getFileUrl(req.attachmentUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 hover:text-teal-800"
+                        >
+                          <Paperclip className="w-3.5 h-3.5" /> {req.attachmentName || 'View Document'}
+                        </a>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -499,8 +550,18 @@ const EmployeePermissions = () => {
                               {req.totalHoursFormatted || `${req.totalHours} hrs`}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">
-                            {req.reason || <span className="text-slate-400 italic">No reason</span>}
+                          <td className="px-6 py-4 text-xs text-slate-600 max-w-xs">
+                            <p className="truncate">{req.reason || <span className="text-slate-400 italic">No reason</span>}</p>
+                            {req.attachmentUrl && (
+                              <a
+                                href={getFileUrl(req.attachmentUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 hover:text-teal-800 mt-1"
+                              >
+                                <Paperclip className="w-3 h-3" /> {req.attachmentName || 'View Document'}
+                              </a>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-xs">
                             {renderStatusBadge(req.status)}
@@ -559,6 +620,17 @@ const EmployeePermissions = () => {
                       </div>
                     </div>
 
+                    {req.attachmentUrl && (
+                      <a
+                        href={getFileUrl(req.attachmentUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800"
+                      >
+                        <Paperclip className="w-3.5 h-3.5" /> {req.attachmentName || 'View Document'}
+                      </a>
+                    )}
+
                     {req.status === 'PENDING' && (
                       <div className="flex gap-2 pt-2 border-t border-slate-100">
                         <button
@@ -586,9 +658,9 @@ const EmployeePermissions = () => {
       {/* Request Permission / WFH / Leave Modal */}
       {showModal && createPortal(
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-lg overflow-hidden border border-slate-100 animate-slide-up flex flex-col">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-lg border border-slate-100 animate-slide-up flex flex-col max-h-[90vh]">
             {/* Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0 rounded-t-3xl">
               <div className="flex items-center space-x-3">
                 <div className="w-9 h-9 bg-teal-50 rounded-xl text-teal-700 flex items-center justify-center font-bold">
                   <Clock className="w-5 h-5" />
@@ -611,7 +683,7 @@ const EmployeePermissions = () => {
             </div>
 
             {/* Form Body */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               {/* Request Type Selector */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
@@ -632,6 +704,7 @@ const EmployeePermissions = () => {
                       onClick={() => {
                         setForm({ ...form, requestType: cat.id as any });
                         setDayType('FULL_DAY');
+                        if (cat.id !== 'LEAVE') setExtraLeaveDates([]);
                       }}
                       className={`p-2.5 rounded-2xl border text-left transition-all relative ${
                         form.requestType === cat.id
@@ -735,6 +808,52 @@ const EmployeePermissions = () => {
                 />
               </div>
 
+              {/* Leave only: select additional dates to apply for multiple days at once */}
+              {form.requestType === 'LEAVE' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Additional Leave Dates (optional)
+                  </label>
+                  <div className="space-y-2">
+                    {extraLeaveDates.map((d, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={d}
+                          onChange={(e) => {
+                            const updated = [...extraLeaveDates];
+                            updated[idx] = e.target.value;
+                            setExtraLeaveDates(updated);
+                          }}
+                          className="form-input text-xs flex-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setExtraLeaveDates(extraLeaveDates.filter((_, i) => i !== idx))}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                          title="Remove date"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setExtraLeaveDates([...extraLeaveDates, todayStr])}
+                      className="flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-800"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add another date
+                    </button>
+                  </div>
+                  {allSelectedLeaveDates.length > 1 && (
+                    <p className="text-[10px] text-slate-400 mt-1.5">
+                      This will submit {allSelectedLeaveDates.length} separate leave requests, one for each date.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Time Picker ONLY for PERMISSION (Hidden for Full Day Leave/WFH/Week Off) */}
               {form.requestType === 'PERMISSION' && (
                 <div className="grid grid-cols-2 gap-3">
@@ -836,7 +955,9 @@ const EmployeePermissions = () => {
                   }`}
                 >
                   <Send className="w-3.5 h-3.5" />
-                  {submitting ? 'Submitting Request...' : `Submit ${form.requestType === 'WEEK_OFF' ? 'Compensatory Week Off' : form.requestType === 'WFH' ? 'WFH' : form.requestType === 'LEAVE' ? 'Leave' : 'Permission'} Application`}
+                  {submitting
+                    ? 'Submitting Request...'
+                    : `Submit ${form.requestType === 'WEEK_OFF' ? 'Compensatory Week Off' : form.requestType === 'WFH' ? 'WFH' : form.requestType === 'LEAVE' ? 'Leave' : 'Permission'} Application${form.requestType === 'LEAVE' && allSelectedLeaveDates.length > 1 ? ` (${allSelectedLeaveDates.length} dates)` : ''}`}
                 </button>
               </div>
             </form>
