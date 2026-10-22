@@ -1136,36 +1136,6 @@ const AdminSettings = () => {
               </p>
             </div>
 
-            {/* Quick Location Preset Selector */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-xs font-bold text-slate-600 mr-1">Quick Presets:</span>
-              {[
-                { label: '🏢 Chennai HQ', lat: 13.0827, lng: 80.2707, addr: 'Shero HQ, Anna Nagar, Chennai' },
-                { label: '🏢 Bangalore Office', lat: 12.9716, lng: 77.5946, addr: 'Shero Tech Hub, Koramangala, Bangalore' },
-                { label: '🏢 Hyderabad Hub', lat: 17.3850, lng: 78.4867, addr: 'Shero Kitchen, HITEC City, Hyderabad' },
-                { label: '🏢 Coimbatore Central', lat: 11.0168, lng: 76.9558, addr: 'Shero Centre, RS Puram, Coimbatore' },
-              ].map((preset) => (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => {
-                    setSettings({
-                      ...settings,
-                      officeLocation: {
-                        ...settings.officeLocation,
-                        latitude: preset.lat,
-                        longitude: preset.lng,
-                        address: preset.addr,
-                      },
-                    });
-                    toast.success(`Coordinates loaded for ${preset.label}`);
-                  }}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-teal-50 hover:border-teal-300 text-slate-700 hover:text-teal-800 text-xs font-semibold transition-all"
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               <div className="sm:col-span-2">
