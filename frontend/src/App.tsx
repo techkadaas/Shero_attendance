@@ -14,6 +14,7 @@ import AdminSettings from './pages/admin/AdminSettings';
 import AttendanceHistory from './pages/employee/AttendanceHistory';
 import EmployeePermissions from './pages/employee/EmployeePermissions';
 import AdminPermissions from './pages/admin/AdminPermissions';
+import AdminMonthlyReport from './pages/admin/AdminMonthlyReport';
 import { Toaster } from 'react-hot-toast';
 
 const PrivateRoute = ({ children, role }: { children: React.ReactElement, role?: string }) => {
@@ -62,6 +63,7 @@ const App = () => {
             <Route path="employees/:id" element={<AdminEmployeeDetail />} />
             <Route path="employees/:id/attendance" element={<AdminEmployeeAttendance />} />
             <Route path="permissions" element={<AdminPermissions />} />
+            <Route path="reports" element={<AdminMonthlyReport />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
           

@@ -59,3 +59,21 @@ export const getAttendanceByRange = async (startDate: string, endDate: string) =
   const response = await api.get('/attendance/monthly', { params: { startDate, endDate } });
   return response.data;
 };
+
+export const submitRegularization = async (attendanceId: string, remark: string) => {
+  const response = await api.post(`/attendance/regularize/${attendanceId}`, { remark });
+  return response.data;
+};
+
+export const getTeamRegularizations = async () => {
+  const response = await api.get('/attendance/regularize/team');
+  return response.data;
+};
+
+export const updateRegularizationStatus = async (
+  attendanceId: string,
+  payload: { status: 'APPROVED' | 'REJECTED'; managerComment?: string }
+) => {
+  const response = await api.put(`/attendance/regularize/${attendanceId}/status`, payload);
+  return response.data;
+};

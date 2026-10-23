@@ -8,7 +8,8 @@ import {
   updatePermissionStatus,
   calculateDuration,
 } from '../../services/permissionService';
-import { formatTime12 } from '../../utils/timeUtils';
+import { getTeamRegularizations, updateRegularizationStatus } from '../../services/attendanceService';
+import { formatTime12, formatTime } from '../../utils/timeUtils';
 import { getFileUrl } from '../../utils/fileUrl';
 import {
   Clock,
@@ -22,7 +23,8 @@ import {
   Calendar,
   Send,
   MessageSquare,
-  Paperclip
+  Paperclip,
+  AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -31,8 +33,15 @@ const EmployeePermissions = () => {
   const { user } = useAuth();
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [teamRequests, setTeamRequests] = useState<any[]>([]);
+  const [teamRegularizations, setTeamRegularizations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'my' | 'team'>('my');
+  const [regularizeReviewModal, setRegularizeReviewModal] = useState<{
+    isOpen: boolean;
+    record: any;
+    status: 'APPROVED' | 'REJECTED';
+    comment: string;
+  }>({ isOpen: false, record: null, status: 'APPROVED', comment: '' });
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -97,17 +106,34 @@ const EmployeePermissions = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [myRes, teamRes] = await Promise.all([
+      const [myRes, teamRes, teamRegularizationsRes] = await Promise.all([
         getMyPermissions(),
         getTeamPermissions(),
+        getTeamRegularizations().catch(() => []),
       ]);
       setMyRequests(myRes);
       setTeamRequests(teamRes);
+      setTeamRegularizations(Array.isArray(teamRegularizationsRes) ? teamRegularizationsRes : []);
     } catch (error) {
       console.error('Failed to fetch permissions', error);
       toast.error('Failed to load permission requests');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRegularizeReview = async () => {
+    if (!regularizeReviewModal.record) return;
+    try {
+      await updateRegularizationStatus(regularizeReviewModal.record._id, {
+        status: regularizeReviewModal.status,
+        managerComment: regularizeReviewModal.comment,
+      });
+      toast.success(`Regularization request ${regularizeReviewModal.status.toLowerCase()}!`);
+      setRegularizeReviewModal({ isOpen: false, record: null, status: 'APPROVED', comment: '' });
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to update regularization status');
     }
   };
 
@@ -511,6 +537,53 @@ const EmployeePermissions = () => {
       {/* TAB 2: Team Approvals */}
       {activeTab === 'team' && (
         <>
+          {/* Half Day Regularization Requests */}
+          {teamRegularizations.length > 0 && (
+            <div className="bg-white shadow-card rounded-3xl border border-slate-200/80 overflow-hidden mb-6">
+              <div className="px-6 py-4 border-b border-slate-100 bg-orange-50/40 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-600" />
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Half Day Leave Regularization Requests ({teamRegularizations.length})
+                </h3>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {teamRegularizations.map((reg: any) => (
+                  <div key={reg._id} className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs font-bold text-slate-900">{reg.employeeName}</p>
+                        <span className="text-[10px] text-slate-400 font-mono">{reg.employeeId}</span>
+                        {renderStatusBadge(reg.regularizationStatus)}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {format(new Date(reg.date), 'EEE, MMM d, yyyy')} • Signed out at {formatTime(reg.checkOut)}
+                      </p>
+                      <p className="text-xs text-slate-600 mt-1">
+                        <span className="text-slate-400">Remark: </span>{reg.regularizationRemark}
+                      </p>
+                    </div>
+                    {reg.regularizationStatus === 'PENDING' && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setRegularizeReviewModal({ isOpen: true, record: reg, status: 'APPROVED', comment: '' })}
+                          className="inline-flex items-center text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-xl border border-emerald-200 transition-colors"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approve
+                        </button>
+                        <button
+                          onClick={() => setRegularizeReviewModal({ isOpen: true, record: reg, status: 'REJECTED', comment: '' })}
+                          className="inline-flex items-center text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-xl border border-rose-200 transition-colors"
+                        >
+                          <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {teamRequests.length === 0 ? (
             <div className="bg-white rounded-3xl p-10 text-center text-slate-400 text-xs border border-slate-200 shadow-card">
               No permission requests received from your team.
@@ -1035,6 +1108,77 @@ const EmployeePermissions = () => {
                   }`}
                 >
                   Confirm {reviewModal.status === 'APPROVED' ? 'Approval' : 'Rejection'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Regularization Review Modal */}
+      {regularizeReviewModal.isOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md overflow-hidden border border-slate-100 animate-slide-up flex flex-col">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
+              <h3 className="text-sm font-extrabold text-slate-900">
+                {regularizeReviewModal.status === 'APPROVED' ? 'Approve' : 'Reject'} Half Day Regularization
+              </h3>
+              <button
+                onClick={() => setRegularizeReviewModal({ isOpen: false, record: null, status: 'APPROVED', comment: '' })}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3.5 bg-slate-50 rounded-2xl text-xs space-y-1.5 border border-slate-100">
+                <p><strong className="text-slate-700">Employee:</strong> {regularizeReviewModal.record?.employeeName} ({regularizeReviewModal.record?.employeeId})</p>
+                <p><strong className="text-slate-700">Date:</strong> {regularizeReviewModal.record && format(new Date(regularizeReviewModal.record.date), 'EEE, MMM d, yyyy')}</p>
+                <p><strong className="text-slate-700">Signed Out:</strong> {formatTime(regularizeReviewModal.record?.checkOut)}</p>
+                <p><strong className="text-slate-700">Remark:</strong> {regularizeReviewModal.record?.regularizationRemark || 'None'}</p>
+              </div>
+
+              {regularizeReviewModal.status === 'APPROVED' ? (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800">
+                  Approving will clear the Half Day Leave flag for this attendance record.
+                </div>
+              ) : (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-800">
+                  Rejecting will keep this day marked as Half Day Leave.
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Manager Remark / Note (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Enter feedback for employee..."
+                  value={regularizeReviewModal.comment}
+                  onChange={(e) => setRegularizeReviewModal({ ...regularizeReviewModal, comment: e.target.value })}
+                  className="form-input text-xs"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setRegularizeReviewModal({ isOpen: false, record: null, status: 'APPROVED', comment: '' })}
+                  className="btn-secondary flex-1 py-2.5 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRegularizeReview}
+                  className={`flex-1 py-2.5 text-white font-bold text-xs rounded-xl shadow-sm transition-all ${
+                    regularizeReviewModal.status === 'APPROVED'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
+                >
+                  Confirm {regularizeReviewModal.status === 'APPROVED' ? 'Approval' : 'Rejection'}
                 </button>
               </div>
             </div>

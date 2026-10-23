@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Users, CalendarDays, Menu, X, Settings, Clock4, ShieldCheck, ChevronDown, Clock, MapPin, Home, Calendar, Briefcase, Calculator } from 'lucide-react';
+import { LogOut, Users, CalendarDays, Menu, X, Settings, Clock4, ShieldCheck, ChevronDown, Clock, MapPin, Home, Calendar, Briefcase, FileBarChart } from 'lucide-react';
 import { AttendanceReminderAndPWA } from '../components/common/AttendanceReminderAndPWA';
 
 const settingsSubItems = [
@@ -11,7 +11,6 @@ const settingsSubItems = [
   { label: 'Company WFH Days', tab: 'wfh', icon: Home },
   { label: 'Holidays Calendar', tab: 'holidays', icon: Calendar },
   { label: 'Departments', tab: 'departments', icon: Briefcase },
-  { label: 'Payroll & Statutory', tab: 'payroll', icon: Calculator },
 ];
 
 const AdminLayout = () => {
@@ -37,7 +36,8 @@ const AdminLayout = () => {
   const navItems = [
     { name: 'Dashboard', path: '/admin', icon: CalendarDays },
     { name: 'Employees', path: '/admin/employees', icon: Users },
-    { name: 'Permissions', path: '/admin/permissions', icon: Clock4 },
+    { name: 'Employee Requests', path: '/admin/permissions', icon: Clock4 },
+    { name: 'Monthly Report', path: '/admin/reports', icon: FileBarChart },
   ];
 
   const BrandLogo = () => (

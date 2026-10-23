@@ -4,7 +4,8 @@ import {
   getTeamPermissions,
   updatePermissionStatus,
 } from '../../services/permissionService';
-import { formatTime12 } from '../../utils/timeUtils';
+import { getTeamRegularizations, updateRegularizationStatus } from '../../services/attendanceService';
+import { formatTime12, formatTime } from '../../utils/timeUtils';
 import { getFileUrl } from '../../utils/fileUrl';
 import {
   Clock,
@@ -15,16 +16,151 @@ import {
   X,
   Search,
   MessageSquare,
-  Paperclip
+  Paperclip,
+  Calendar,
+  ChevronDown,
+  AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, subMonths, subDays } from 'date-fns';
+
+type ReqDatePreset = 'ALL_TIME' | 'TODAY' | 'YESTERDAY' | 'THIS_WEEK' | 'LAST_WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'LAST_6_MONTHS' | 'CUSTOM';
+
+const REQ_DATE_LABELS: Record<ReqDatePreset, string> = {
+  ALL_TIME: 'All Time',
+  TODAY: 'Today',
+  YESTERDAY: 'Yesterday',
+  THIS_WEEK: 'This Week',
+  LAST_WEEK: 'Last Week',
+  THIS_MONTH: 'This Month',
+  LAST_MONTH: 'Last Month',
+  LAST_6_MONTHS: 'Last 6 Months',
+  CUSTOM: 'Custom Range',
+};
+
+const REQ_DATE_PRESET_ORDER: ReqDatePreset[] = ['ALL_TIME', 'TODAY', 'YESTERDAY', 'THIS_WEEK', 'LAST_WEEK', 'THIS_MONTH', 'LAST_MONTH', 'LAST_6_MONTHS', 'CUSTOM'];
+
+const reqFmt = (d: Date) => format(d, 'yyyy-MM-dd');
+
+const getReqRangeForPreset = (preset: ReqDatePreset, customStart?: string, customEnd?: string): { startDate: string; endDate: string } | null => {
+  const now = new Date();
+  switch (preset) {
+    case 'ALL_TIME':
+      return null;
+    case 'TODAY':
+      return { startDate: reqFmt(now), endDate: reqFmt(now) };
+    case 'YESTERDAY': {
+      const y = subDays(now, 1);
+      return { startDate: reqFmt(y), endDate: reqFmt(y) };
+    }
+    case 'THIS_WEEK':
+      return { startDate: reqFmt(startOfWeek(now, { weekStartsOn: 1 })), endDate: reqFmt(endOfWeek(now, { weekStartsOn: 1 })) };
+    case 'LAST_WEEK': {
+      const lastWeek = subWeeks(now, 1);
+      return { startDate: reqFmt(startOfWeek(lastWeek, { weekStartsOn: 1 })), endDate: reqFmt(endOfWeek(lastWeek, { weekStartsOn: 1 })) };
+    }
+    case 'THIS_MONTH':
+      return { startDate: reqFmt(startOfMonth(now)), endDate: reqFmt(endOfMonth(now)) };
+    case 'LAST_MONTH': {
+      const lastMonth = subMonths(now, 1);
+      return { startDate: reqFmt(startOfMonth(lastMonth)), endDate: reqFmt(endOfMonth(lastMonth)) };
+    }
+    case 'LAST_6_MONTHS':
+      return { startDate: reqFmt(startOfMonth(subMonths(now, 5))), endDate: reqFmt(endOfMonth(now)) };
+    case 'CUSTOM':
+      return { startDate: customStart || reqFmt(now), endDate: customEnd || reqFmt(now) };
+    default:
+      return null;
+  }
+};
+
+interface ReqDateRange {
+  preset: ReqDatePreset;
+  startDate: string;
+  endDate: string;
+}
+
+const RequestDateFilter = ({ value, onChange }: { value: ReqDateRange; onChange: (r: ReqDateRange) => void }) => {
+  const [open, setOpen] = useState(false);
+  const [customStart, setCustomStart] = useState(value.startDate);
+  const [customEnd, setCustomEnd] = useState(value.endDate);
+
+  const selectPreset = (preset: ReqDatePreset) => {
+    if (preset === 'CUSTOM') return;
+    const range = getReqRangeForPreset(preset) || { startDate: '', endDate: '' };
+    onChange({ preset, ...range });
+    setOpen(false);
+  };
+
+  const applyCustom = () => {
+    onChange({ preset: 'CUSTOM', startDate: customStart, endDate: customEnd });
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2 px-3.5 transition-all"
+      >
+        <Calendar className="w-3.5 h-3.5 text-teal-600" />
+        <span>{REQ_DATE_LABELS[value.preset]}</span>
+        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-lg z-20 p-2 max-h-[80vh] overflow-y-auto">
+          {REQ_DATE_PRESET_ORDER.filter((p) => p !== 'CUSTOM').map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => selectPreset(preset)}
+              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                value.preset === preset ? 'bg-teal-50 text-teal-700' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {REQ_DATE_LABELS[preset]}
+            </button>
+          ))}
+          <div className="border-t border-slate-100 mt-1 pt-2 px-1 space-y-2">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2">Custom Range</p>
+            <div className="flex items-center gap-1.5 px-1">
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="w-1/2 text-[11px] border border-slate-200 rounded-lg px-2 py-1.5"
+              />
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="w-1/2 text-[11px] border border-slate-200 rounded-lg px-2 py-1.5"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={applyCustom}
+              className="w-full bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-1.5 rounded-xl transition-colors"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AdminPermissions = () => {
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [filterType, setFilterType] = useState<'ALL' | 'PERMISSION' | 'WFH' | 'LEAVE'>('ALL');
+  const [dateRange, setDateRange] = useState<ReqDateRange>({ preset: 'ALL_TIME', startDate: '', endDate: '' });
   const [searchQuery, setSearchQuery] = useState('');
+  const [regularizations, setRegularizations] = useState<any[]>([]);
 
   // Review Modal State
   const [reviewModal, setReviewModal] = useState<{
@@ -39,16 +175,42 @@ const AdminPermissions = () => {
     comment: '',
   });
 
+  const [regularizeReviewModal, setRegularizeReviewModal] = useState<{
+    isOpen: boolean;
+    record: any;
+    status: 'APPROVED' | 'REJECTED';
+    comment: string;
+  }>({ isOpen: false, record: null, status: 'APPROVED', comment: '' });
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const data = await getTeamPermissions();
+      const [data, regularizationsData] = await Promise.all([
+        getTeamPermissions(),
+        getTeamRegularizations().catch(() => []),
+      ]);
       setRequests(data);
+      setRegularizations(Array.isArray(regularizationsData) ? regularizationsData : []);
     } catch (error) {
       console.error('Failed to fetch permissions', error);
       toast.error('Failed to load permission requests');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRegularizeReview = async () => {
+    if (!regularizeReviewModal.record) return;
+    try {
+      await updateRegularizationStatus(regularizeReviewModal.record._id, {
+        status: regularizeReviewModal.status,
+        managerComment: regularizeReviewModal.comment,
+      });
+      toast.success(`Regularization request ${regularizeReviewModal.status.toLowerCase()}!`);
+      setRegularizeReviewModal({ isOpen: false, record: null, status: 'APPROVED', comment: '' });
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to update regularization status');
     }
   };
 
@@ -128,11 +290,15 @@ const AdminPermissions = () => {
 
   const filteredRequests = requests.filter((req) => {
     const matchesStatus = filterStatus === 'ALL' || req.status === filterStatus;
+    const matchesType = filterType === 'ALL' || req.requestType === filterType;
     const matchesSearch =
       req.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (req.reason && req.reason.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesStatus && matchesSearch;
+    const matchesDate =
+      dateRange.preset === 'ALL_TIME' ||
+      (req.date >= dateRange.startDate && req.date <= dateRange.endDate);
+    return matchesStatus && matchesType && matchesSearch && matchesDate;
   });
 
   const pendingCount = requests.filter((r) => r.status === 'PENDING').length;
@@ -164,20 +330,89 @@ const AdminPermissions = () => {
         </div>
       </div>
 
+      {/* Half Day Regularization Requests */}
+      {regularizations.length > 0 && (
+        <div className="bg-white shadow-card rounded-3xl border border-slate-200/80 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 bg-orange-50/40 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-orange-600" />
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+              Half Day Leave Regularization Requests ({regularizations.length})
+            </h3>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {regularizations.map((reg: any) => (
+              <div key={reg._id} className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-xs font-bold text-slate-900">{reg.employeeName}</p>
+                    <span className="text-[10px] text-slate-400 font-mono">{reg.employeeId}</span>
+                    {renderStatusBadge(reg.regularizationStatus)}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {format(new Date(reg.date), 'EEE, MMM d, yyyy')} • Signed out at {formatTime(reg.checkOut)}
+                  </p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    <span className="text-slate-400">Remark: </span>{reg.regularizationRemark}
+                  </p>
+                </div>
+                {reg.regularizationStatus === 'PENDING' && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => setRegularizeReviewModal({ isOpen: true, record: reg, status: 'APPROVED', comment: '' })}
+                      className="inline-flex items-center text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-xl border border-emerald-200 transition-colors"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approve
+                    </button>
+                    <button
+                      onClick={() => setRegularizeReviewModal({ isOpen: true, record: reg, status: 'REJECTED', comment: '' })}
+                      className="inline-flex items-center text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-xl border border-rose-200 transition-colors"
+                    >
+                      <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filter and Search */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-subtle">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search by employee or reason..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
-          />
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-subtle space-y-3">
+        {/* Row 1: Search, Type, Date */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5">
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by employee or reason..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+            />
+          </div>
+
+          <div className="relative shrink-0">
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as typeof filterType)}
+              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 py-2 pl-3.5 pr-8 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all cursor-pointer"
+            >
+              <option value="ALL">All Types</option>
+              <option value="PERMISSION">Permission</option>
+              <option value="WFH">WFH</option>
+              <option value="LEAVE">Leave</option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          <div className="shrink-0">
+            <RequestDateFilter value={dateRange} onChange={setDateRange} />
+          </div>
         </div>
 
-        <div className="flex items-center space-x-1 overflow-x-auto w-full sm:w-auto">
+        {/* Row 2: Status Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto">
           {[
             { id: 'ALL', label: `All (${requests.length})` },
             { id: 'PENDING', label: `Pending (${pendingCount})` },
@@ -187,7 +422,7 @@ const AdminPermissions = () => {
             <button
               key={tab.id}
               onClick={() => setFilterStatus(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
                 filterStatus === tab.id
                   ? 'bg-teal-600 text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -460,6 +695,77 @@ const AdminPermissions = () => {
                   }`}
                 >
                   Confirm {reviewModal.status === 'APPROVED' ? 'Approval' : 'Rejection'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Regularization Review Modal */}
+      {regularizeReviewModal.isOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white w-full rounded-3xl shadow-2xl max-w-md overflow-hidden border border-slate-100 animate-slide-up flex flex-col">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
+              <h3 className="text-sm font-extrabold text-slate-900">
+                {regularizeReviewModal.status === 'APPROVED' ? 'Approve' : 'Reject'} Half Day Regularization
+              </h3>
+              <button
+                onClick={() => setRegularizeReviewModal({ isOpen: false, record: null, status: 'APPROVED', comment: '' })}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3.5 bg-slate-50 rounded-2xl text-xs space-y-1.5 border border-slate-100">
+                <p><strong className="text-slate-700">Employee:</strong> {regularizeReviewModal.record?.employeeName} ({regularizeReviewModal.record?.employeeId})</p>
+                <p><strong className="text-slate-700">Date:</strong> {regularizeReviewModal.record && format(new Date(regularizeReviewModal.record.date), 'EEE, MMM d, yyyy')}</p>
+                <p><strong className="text-slate-700">Signed Out:</strong> {formatTime(regularizeReviewModal.record?.checkOut)}</p>
+                <p><strong className="text-slate-700">Remark:</strong> {regularizeReviewModal.record?.regularizationRemark || 'None'}</p>
+              </div>
+
+              {regularizeReviewModal.status === 'APPROVED' ? (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800">
+                  Approving will clear the Half Day Leave flag for this attendance record.
+                </div>
+              ) : (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-800">
+                  Rejecting will keep this day marked as Half Day Leave.
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Manager Remark / Note (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Enter feedback for employee..."
+                  value={regularizeReviewModal.comment}
+                  onChange={(e) => setRegularizeReviewModal({ ...regularizeReviewModal, comment: e.target.value })}
+                  className="form-input text-xs"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setRegularizeReviewModal({ isOpen: false, record: null, status: 'APPROVED', comment: '' })}
+                  className="btn-secondary flex-1 py-2.5 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRegularizeReview}
+                  className={`flex-1 py-2.5 text-white font-bold text-xs rounded-xl shadow-sm transition-all ${
+                    regularizeReviewModal.status === 'APPROVED'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
+                >
+                  Confirm {regularizeReviewModal.status === 'APPROVED' ? 'Approval' : 'Rejection'}
                 </button>
               </div>
             </div>

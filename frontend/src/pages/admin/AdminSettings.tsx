@@ -6,13 +6,11 @@ import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import {
   Settings,
-  Percent,
   Clock,
   ShieldCheck,
   HelpCircle,
   Save,
   RefreshCw,
-  Calculator,
   AlertCircle,
   MapPin,
   Navigation,
@@ -65,9 +63,9 @@ const DEFAULT_DEPARTMENTS = [
   'Compliance',
 ];
 
-type SettingsTab = 'TIMINGS' | 'GEOFENCE' | 'WFH' | 'HOLIDAYS' | 'DEPARTMENTS' | 'PAYROLL';
+type SettingsTab = 'TIMINGS' | 'GEOFENCE' | 'WFH' | 'HOLIDAYS' | 'DEPARTMENTS';
 
-const VALID_TABS: SettingsTab[] = ['TIMINGS', 'GEOFENCE', 'WFH', 'HOLIDAYS', 'DEPARTMENTS', 'PAYROLL'];
+const VALID_TABS: SettingsTab[] = ['TIMINGS', 'GEOFENCE', 'WFH', 'HOLIDAYS', 'DEPARTMENTS'];
 
 const AdminSettings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -674,6 +672,10 @@ const AdminSettings = () => {
   // Existing scheduled WFH dates set
   const scheduledWfhDatesSet = new Set(wfhDaysList.map((w) => w.date));
 
+  // Display lists sorted newest to oldest (fetch order is unaffected)
+  const sortedWfhDaysList = [...wfhDaysList].sort((a, b) => b.date.localeCompare(a.date));
+  const sortedHolidaysList = [...holidays].sort((a, b) => b.date.localeCompare(a.date));
+
   // Calendar calculations for WFH bulk modal
   const wfhYear = wfhCalendarMonth.getFullYear();
   const wfhMonth = wfhCalendarMonth.getMonth();
@@ -749,14 +751,6 @@ const AdminSettings = () => {
       icon: Briefcase,
       badge: `${(settings.departments || DEFAULT_DEPARTMENTS).length} Units`,
       badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
-      autosave: false,
-    },
-    {
-      id: 'PAYROLL' as SettingsTab,
-      label: 'Payroll & Statutory',
-      icon: Calculator,
-      badge: `PF ${(settings.pfEmployeeRate * 100).toFixed(0)}% / ESI ${(settings.esiEmployeeRate * 100).toFixed(2)}%`,
-      badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
       autosave: false,
     },
   ];
@@ -1401,7 +1395,7 @@ const AdminSettings = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                      {wfhDaysList.map((w) => {
+                      {sortedWfhDaysList.map((w) => {
                         const dateObj = new Date(w.date + 'T00:00:00');
                         const formattedDate = dateObj.toLocaleDateString('en-US', {
                           year: 'numeric',
@@ -1580,7 +1574,7 @@ const AdminSettings = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                      {holidays.map((h) => {
+                      {sortedHolidaysList.map((h) => {
                         const formattedDate = new Date(h.date + 'T00:00:00').toLocaleDateString('en-US', {
                           weekday: 'short',
                           year: 'numeric',
@@ -1716,242 +1710,6 @@ const AdminSettings = () => {
             >
               <Save className="w-4 h-4" />
               <span>{saving ? 'Saving Changes...' : 'Save Departments'}</span>
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* TAB 6: PAYROLL & STATUTORY */}
-      {activeTab === 'PAYROLL' && (
-        <form onSubmit={handleSave} className="space-y-6 animate-fade-in">
-          {/* Statutory PF & ESI Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* PF Settings Card */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-7 space-y-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                      PF
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900">Provident Fund (PF)</h3>
-                      <p className="text-xs text-slate-500">Calculated on Employee Basic Salary</p>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-200/60">
-                    EPFO Compliant
-                  </span>
-                </div>
-
-                <div className="space-y-4 pt-5">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-slate-700">Employee Contribution Rate</label>
-                      <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                        {(settings.pfEmployeeRate * 100).toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="relative rounded-xl shadow-xs">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <Percent className="h-4 w-4" />
-                      </div>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        required
-                        value={Number((settings.pfEmployeeRate * 100).toFixed(4))}
-                        onChange={(e) => setSettings({ ...settings, pfEmployeeRate: (parseFloat(e.target.value) || 0) / 100 })}
-                        className="w-full pl-10 pr-24 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-mono font-medium"
-                      />
-                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-                        <span className="text-xs text-slate-400 font-medium">% of Basic</span>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-1">Standard statutory employee deduction is typically 12%.</p>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-slate-700">Employer Contribution Rate</label>
-                      <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                        {(settings.pfEmployerRate * 100).toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="relative rounded-xl shadow-xs">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <Percent className="h-4 w-4" />
-                      </div>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        required
-                        value={Number((settings.pfEmployerRate * 100).toFixed(4))}
-                        onChange={(e) => setSettings({ ...settings, pfEmployerRate: (parseFloat(e.target.value) || 0) / 100 })}
-                        className="w-full pl-10 pr-24 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-mono font-medium"
-                      />
-                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-                        <span className="text-xs text-slate-400 font-medium">% of Basic</span>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-1">Direct company contribution credited towards employee provident fund.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-start gap-2 text-xs text-slate-600">
-                <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-                <span>Deductions update automatically during monthly payroll generation.</span>
-              </div>
-            </div>
-
-            {/* ESI Settings Card */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-7 space-y-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-                      ESI
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900">State Insurance (ESI)</h3>
-                      <p className="text-xs text-slate-500">Calculated on Total Gross Earnings</p>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-semibold px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full border border-purple-200/60">
-                    ESIC Standard
-                  </span>
-                </div>
-
-                <div className="space-y-4 pt-5">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-slate-700">Employee Contribution Rate</label>
-                      <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                        {(settings.esiEmployeeRate * 100).toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="relative rounded-xl shadow-xs">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <Percent className="h-4 w-4" />
-                      </div>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        required
-                        value={Number((settings.esiEmployeeRate * 100).toFixed(4))}
-                        onChange={(e) => setSettings({ ...settings, esiEmployeeRate: (parseFloat(e.target.value) || 0) / 100 })}
-                        className="w-full pl-10 pr-24 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-mono font-medium"
-                      />
-                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-                        <span className="text-xs text-slate-400 font-medium">% of Gross</span>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-1">Statutory employee health insurance rate is typically 0.75%.</p>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-slate-700">Employer Contribution Rate</label>
-                      <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                        {(settings.esiEmployerRate * 100).toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="relative rounded-xl shadow-xs">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <Percent className="h-4 w-4" />
-                      </div>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        required
-                        value={Number((settings.esiEmployerRate * 100).toFixed(4))}
-                        onChange={(e) => setSettings({ ...settings, esiEmployerRate: (parseFloat(e.target.value) || 0) / 100 })}
-                        className="w-full pl-10 pr-24 py-2.5 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-mono font-medium"
-                      />
-                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-                        <span className="text-xs text-slate-400 font-medium">% of Gross</span>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-1">Company insurance contribution rate is typically 3.25%.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-start gap-2 text-xs text-slate-600">
-                <HelpCircle className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                <span>Gross monthly salary exceeding ₹21,000 is automatically exempted from ESI.</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Live Statutory Preview Simulator */}
-          <div className="bg-gradient-to-br from-teal-50/70 via-emerald-50/40 to-slate-50 rounded-3xl border border-teal-100 p-6 sm:p-7 space-y-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-xs">
-                  <Calculator className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Live Deduction Simulator</h4>
-                  <p className="text-xs text-slate-500">Preview calculated deductions on sample salary figures</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-600">Sample Gross:</span>
-                <div className="relative w-36">
-                  <span className="absolute inset-y-0 left-3 flex items-center text-xs text-slate-400">₹</span>
-                  <input
-                    type="number"
-                    step="1000"
-                    value={sampleSalary}
-                    onChange={(e) => setSampleSalary(parseFloat(e.target.value) || 0)}
-                    className="w-full pl-7 pr-3 py-2 text-xs font-mono font-bold bg-white rounded-xl border border-teal-200 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-2xs"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              <div className="bg-white/90 p-3.5 rounded-2xl border border-teal-100 shadow-2xs">
-                <span className="text-[11px] font-medium text-slate-500">Basic (50%)</span>
-                <p className="text-sm font-bold font-mono text-slate-800 mt-1">₹{sampleBasic.toLocaleString()}</p>
-              </div>
-              <div className="bg-white/90 p-3.5 rounded-2xl border border-teal-100 shadow-2xs">
-                <span className="text-[11px] font-medium text-blue-600">PF (Employee)</span>
-                <p className="text-sm font-bold font-mono text-slate-800 mt-1">₹{simPfEmployee.toFixed(0)}</p>
-              </div>
-              <div className="bg-white/90 p-3.5 rounded-2xl border border-teal-100 shadow-2xs">
-                <span className="text-[11px] font-medium text-purple-600">ESI (Employee)</span>
-                <p className="text-sm font-bold font-mono text-slate-800 mt-1">
-                  {simEsiEmployee > 0 ? `₹${simEsiEmployee.toFixed(0)}` : 'Exempt (>₹21k)'}
-                </p>
-              </div>
-              <div className="bg-white/90 p-3.5 rounded-2xl border border-emerald-200 shadow-2xs">
-                <span className="text-[11px] font-semibold text-emerald-700">Estimated Net Pay</span>
-                <p className="text-sm font-bold font-mono text-emerald-700 mt-1">
-                  ₹{(sampleSalary - simPfEmployee - simEsiEmployee).toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              <span>{saving ? 'Saving Changes...' : 'Save Payroll Rates'}</span>
             </button>
           </div>
         </form>

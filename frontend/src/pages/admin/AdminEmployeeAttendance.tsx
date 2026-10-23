@@ -3,10 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { formatTime, formatDuration } from '../../utils/timeUtils';
 import { format } from 'date-fns';
-import { Calendar, UserCheck, AlertTriangle, Clock, ArrowLeft, ChevronDown, Search, Users, User, X } from 'lucide-react';
+import { Calendar, UserCheck, AlertTriangle, Clock, Clock4, Palmtree, ArrowLeft, ChevronDown, Search, Users, User, X } from 'lucide-react';
 import LiveTimer from '../../components/attendance/LiveTimer';
 import toast from 'react-hot-toast';
 import DateRangeFilter, { type DateRange, getRangeForPreset } from '../../components/common/DateRangeFilter';
+import { getTeamPermissions } from '../../services/permissionService';
 
 const LATE_THRESHOLD_HOUR = 9;
 const LATE_THRESHOLD_MINUTE = 30;
@@ -46,6 +47,11 @@ const getLastResumeTime = (events: any[]) => {
     }
   }
   return undefined;
+};
+
+const getCheckInCount = (events: any[]) => {
+  if (!events || !Array.isArray(events)) return 0;
+  return events.filter((e) => e.eventType === 'CHECK_IN').length;
 };
 
 const getDisplayStatus = (record: any): ParsedRecord['displayStatus'] => {
@@ -100,6 +106,8 @@ const AdminEmployeeAttendance = () => {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<DateRange>({ preset: 'THIS_MONTH', ...getRangeForPreset('THIS_MONTH') });
   const [employeeName, setEmployeeName] = useState<string>('');
+  const [leaveCount, setLeaveCount] = useState(0);
+  const [permissionCount, setPermissionCount] = useState(0);
 
   // Switcher state
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -133,9 +141,12 @@ const AdminEmployeeAttendance = () => {
   const fetchHistory = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/admin/employees/${id}/attendance`);
+      const [res, teamRequests] = await Promise.all([
+        api.get(`/admin/employees/${id}/attendance`),
+        getTeamPermissions().catch(() => []),
+      ]);
       const allRecords: any[] = res.data;
-      
+
       const filtered = allRecords.filter(r => {
         const d = format(new Date(r.date), 'yyyy-MM-dd');
         return d >= range.startDate && d <= range.endDate;
@@ -147,7 +158,13 @@ const AdminEmployeeAttendance = () => {
         return { ...rec, lunchStart, lunchEnd, displayStatus };
       });
       setRecords(parsed);
-      
+
+      const employeeRequests = (Array.isArray(teamRequests) ? teamRequests : []).filter((r: any) =>
+        r.employeeId === id && r.status !== 'REJECTED' && r.date >= range.startDate && r.date <= range.endDate
+      );
+      setLeaveCount(employeeRequests.filter((r: any) => r.requestType === 'LEAVE').length);
+      setPermissionCount(employeeRequests.filter((r: any) => r.requestType === 'PERMISSION').length);
+
       if (allRecords.length > 0 && allRecords[0].user) {
         setEmployeeName(allRecords[0].user.name);
       }
@@ -309,9 +326,11 @@ const AdminEmployeeAttendance = () => {
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard icon={UserCheck} value={`${daysPresent} Days`} label="Days Present" colorClass="text-emerald-600" bgClass="bg-emerald-50" />
         <StatCard icon={AlertTriangle} value={`${daysLate} Days`} label="Late Check-ins" colorClass="text-amber-600" bgClass="bg-amber-50" />
+        <StatCard icon={Palmtree} value={leaveCount} label="Leave" colorClass="text-rose-600" bgClass="bg-rose-50" />
+        <StatCard icon={Clock4} value={permissionCount} label="Permission" colorClass="text-indigo-600" bgClass="bg-indigo-50" />
         <StatCard icon={Clock} value={formatDuration(dynamicTotalSeconds)} label="Total Logged Hours" colorClass="text-teal-600" bgClass="bg-teal-50" />
       </div>
 
@@ -347,7 +366,17 @@ const AdminEmployeeAttendance = () => {
                 records.map((record) => (
                   <tr key={record._id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-slate-900">
-                      {format(new Date(record.date), 'EEE, MMM d, yyyy')}
+                      <div className="flex items-center gap-1.5">
+                        <span>{format(new Date(record.date), 'EEE, MMM d, yyyy')}</span>
+                        {getCheckInCount(record.events) > 1 && (
+                          <span
+                            className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap"
+                            title={`Signed in ${getCheckInCount(record.events)} times this day`}
+                          >
+                            {getCheckInCount(record.events)}× Sign-in
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-medium text-slate-700">
                       {formatTime(record.checkIn) || '--:--'}
@@ -390,9 +419,16 @@ const AdminEmployeeAttendance = () => {
           records.map((record) => (
             <div key={record._id} className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-card space-y-3">
               <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                <p className="font-bold text-slate-900 text-xs">
-                  {format(new Date(record.date), 'EEE, MMM d, yyyy')}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-bold text-slate-900 text-xs">
+                    {format(new Date(record.date), 'EEE, MMM d, yyyy')}
+                  </p>
+                  {getCheckInCount(record.events) > 1 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap">
+                      {getCheckInCount(record.events)}× Sign-in
+                    </span>
+                  )}
+                </div>
                 <StatusBadge status={record.displayStatus} />
               </div>
 

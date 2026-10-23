@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { formatDuration, formatTime } from '../../utils/timeUtils';
 import { getFileUrl } from '../../utils/fileUrl';
 import { format, subDays } from 'date-fns';
-import { UserCheck, Users, Clock, LogOut, Loader2, Clock4, Sparkles, Inbox, Calendar, ChevronDown, Paperclip } from 'lucide-react';
+import { UserCheck, UserX, Users, Clock, LogOut, Loader2, Clock4, Sparkles, Inbox, Calendar, ChevronDown, Paperclip } from 'lucide-react';
 import LiveTimer from '../../components/attendance/LiveTimer';
 
 type DashboardDatePreset = 'TODAY' | 'YESTERDAY' | 'DAY_BEFORE_YESTERDAY' | 'CUSTOM';
@@ -113,6 +114,11 @@ const getLastResumeTime = (events: any[]) => {
     }
   }
   return undefined;
+};
+
+const getCheckInCount = (events: any[]) => {
+  if (!events || !Array.isArray(events)) return 0;
+  return events.filter((e) => e.eventType === 'CHECK_IN').length;
 };
 
 const getStatusBadge = (status: string) => {
@@ -300,7 +306,7 @@ const AdminDashboard = () => {
       ) : (
         <>
           {/* Primary Metric Telemetry Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             <SummaryCard
               title="Present"
               value={summary?.present || 0}
@@ -321,6 +327,13 @@ const AdminDashboard = () => {
               icon={Clock4}
               colorClass="text-indigo-600"
               bgClass="bg-indigo-50"
+            />
+            <SummaryCard
+              title="Leave"
+              value={summary?.absent || 0}
+              icon={UserX}
+              colorClass="text-rose-600"
+              bgClass="bg-rose-50"
             />
             <SummaryCard
               title="Signed Out"
@@ -362,15 +375,15 @@ const AdminDashboard = () => {
                       permissionList.map((p: any) => (
                         <tr key={p._id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center space-x-3">
+                            <Link to={`/admin/employees/${p.employeeId}/attendance`} className="flex items-center space-x-3 group">
                               <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 font-bold flex items-center justify-center text-xs border border-indigo-100">
                                 {p.name.charAt(0).toUpperCase()}
                               </div>
                               <div>
-                                <div className="text-xs font-bold text-slate-900">{p.name}</div>
+                                <div className="text-xs font-bold text-slate-900 group-hover:text-teal-700 transition-colors">{p.name}</div>
                                 <div className="text-[10px] text-slate-400 font-mono">{p.employeeId}</div>
                               </div>
-                            </div>
+                            </Link>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -436,15 +449,25 @@ const AdminDashboard = () => {
                         displayedAttendance.map((record) => (
                           <tr key={record._id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center space-x-3">
+                              <Link to={`/admin/employees/${record.employeeId}/attendance`} className="flex items-center space-x-3 group">
                                 <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-800 font-bold flex items-center justify-center text-xs border border-teal-100">
                                   {(record.user?.name || record.employeeId).charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                  <div className="text-xs font-bold text-slate-900">{record.user?.name || record.employeeId}</div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-bold text-slate-900 group-hover:text-teal-700 transition-colors">{record.user?.name || record.employeeId}</span>
+                                    {getCheckInCount(record.events) > 1 && (
+                                      <span
+                                        className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap"
+                                        title={`Signed in ${getCheckInCount(record.events)} times today`}
+                                      >
+                                        {getCheckInCount(record.events)}× Sign-in
+                                      </span>
+                                    )}
+                                  </div>
                                   {record.user && <div className="text-[10px] text-slate-400 font-mono">{record.user.employeeId}</div>}
                                 </div>
-                              </div>
+                              </Link>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-xs font-mono font-medium text-slate-700">
                               <div className="flex items-center gap-1.5">
@@ -487,10 +510,20 @@ const AdminDashboard = () => {
                   displayedAttendance.map((record) => (
                     <div key={record._id} className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-card space-y-3">
                       <div className="flex justify-between items-start pb-2 border-b border-slate-100">
-                        <div>
-                          <p className="font-bold text-slate-900 text-xs">{record.user?.name || record.employeeId}</p>
+                        <Link to={`/admin/employees/${record.employeeId}/attendance`}>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-bold text-slate-900 text-xs">{record.user?.name || record.employeeId}</p>
+                            {getCheckInCount(record.events) > 1 && (
+                              <span
+                                className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap"
+                                title={`Signed in ${getCheckInCount(record.events)} times today`}
+                              >
+                                {getCheckInCount(record.events)}× Sign-in
+                              </span>
+                            )}
+                          </div>
                           {record.user && <p className="text-[10px] text-slate-400 font-mono mt-0.5">{record.user.employeeId}</p>}
-                        </div>
+                        </Link>
                         {getStatusBadge(record.status)}
                       </div>
 

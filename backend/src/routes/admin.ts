@@ -1292,5 +1292,64 @@ router.delete('/wfh-days/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// --- Monthly Report: Leave / Late / Permission counts per employee over a date range ---
+router.get('/reports/monthly', async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query as any;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate are required' });
+    }
+
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T23:59:59.999`);
+
+    const [employees, leavePerms, permissionPerms, attendanceRecords, currentSettings] = await Promise.all([
+      users().find({ role: 'EMPLOYEE' }).project({ name: 1, employeeId: 1, department: 1 }).toArray(),
+      permissions().find({ requestType: 'LEAVE', status: { $ne: 'REJECTED' }, date: { $gte: startDate, $lte: endDate } }).toArray(),
+      permissions().find({ requestType: 'PERMISSION', status: { $ne: 'REJECTED' }, date: { $gte: startDate, $lte: endDate } }).toArray(),
+      attendances().find({ date: { $gte: start, $lte: end } }).toArray(),
+      settings().findOne({}),
+    ]);
+
+    const officeStartTime = currentSettings?.officeStartTime || '09:00';
+    const graceMinutes = currentSettings?.graceMinutes ?? 15;
+    const [startH, startM] = officeStartTime.split(':').map(Number);
+    const thresholdMinutes = (isNaN(startH) ? 9 : startH) * 60 + (isNaN(startM) ? 0 : startM) + graceMinutes;
+
+    const leaveCountMap: Record<string, number> = {};
+    leavePerms.forEach((p: any) => {
+      leaveCountMap[p.employeeId] = (leaveCountMap[p.employeeId] || 0) + 1;
+    });
+
+    const permissionCountMap: Record<string, number> = {};
+    permissionPerms.forEach((p: any) => {
+      permissionCountMap[p.employeeId] = (permissionCountMap[p.employeeId] || 0) + 1;
+    });
+
+    const lateCountMap: Record<string, number> = {};
+    attendanceRecords.forEach((rec: any) => {
+      if (!rec.checkIn) return;
+      const checkInMinutes = getISTMinutes(new Date(rec.checkIn));
+      if (checkInMinutes > thresholdMinutes) {
+        lateCountMap[rec.employeeId] = (lateCountMap[rec.employeeId] || 0) + 1;
+      }
+    });
+
+    const report = employees.map((emp: any) => ({
+      employeeId: emp.employeeId,
+      name: emp.name,
+      department: emp.department || '',
+      leaveCount: leaveCountMap[emp.employeeId] || 0,
+      lateCount: lateCountMap[emp.employeeId] || 0,
+      permissionCount: permissionCountMap[emp.employeeId] || 0,
+    }));
+
+    res.json({ startDate, endDate, report });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to generate monthly report' });
+  }
+});
+
 export default router;
 

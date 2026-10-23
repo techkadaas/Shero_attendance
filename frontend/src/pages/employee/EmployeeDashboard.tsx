@@ -8,11 +8,19 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { Clock4, CalendarDays, Sparkles, Activity, Building2, Home, Palmtree, UserCheck } from 'lucide-react';
 
+interface LeaveSummary {
+  totalLeaveDaysYear: number;
+  totalLeaveDaysMonth: number;
+  approvedPermissionsMonth?: number;
+  wfoCountMonth?: number;
+  wfhCountMonth?: number;
+}
+
 const EmployeeDashboard = () => {
   const { user } = useAuth();
   const [attendance, setAttendance] = useState<any>(null);
   const [holidays, setHolidays] = useState<any[]>([]);
-  const [leaveSummary, setLeaveSummary] = useState({ totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 });
+  const [leaveSummary, setLeaveSummary] = useState<LeaveSummary>({ totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 });
   const [isCompanyWfhDay, setIsCompanyWfhDay] = useState(false);
   const [todayWfhInfo, setTodayWfhInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -213,7 +221,7 @@ const EmployeeDashboard = () => {
                 <Palmtree className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Upcoming Office Holidays</h3>
+                <h3 className="text-sm font-bold text-slate-900">Upcoming Shero Holidays</h3>
                 <p className="text-[11px] text-slate-500">Official company declared holidays</p>
               </div>
             </div>
@@ -264,8 +272,8 @@ const EmployeeDashboard = () => {
                   <CalendarDays className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">My Leave Summary</h3>
-                  <p className="text-[11px] text-slate-500">Approved leaves & days off tracking</p>
+                  <h3 className="text-sm font-bold text-slate-900">My Attendance Summary</h3>
+                  <p className="text-[11px] text-slate-500">This month's leave, permission & work mode tracking</p>
                 </div>
               </div>
               <Link
@@ -276,29 +284,37 @@ const EmployeeDashboard = () => {
               </Link>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5">
-              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80">
-                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Holidays Worked</span>
-                <span className="text-xl font-extrabold font-mono text-amber-950 mt-1 block">
-                  {(leaveSummary as any).holidaysWorkedCount || 0} Days
-                </span>
-                <span className="text-[10px] text-amber-700 font-medium mt-0.5 block">Holiday / Sunday Punches</span>
-              </div>
-
+            <div className="grid grid-cols-2 gap-2.5">
               <div className="p-3.5 rounded-2xl bg-rose-50/60 border border-rose-100">
-                <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">This Month</span>
+                <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">Leave</span>
                 <span className="text-xl font-extrabold font-mono text-rose-900 mt-1 block">
                   {leaveSummary.totalLeaveDaysMonth} Days
                 </span>
-                <span className="text-[10px] text-rose-600 font-medium mt-0.5 block">Approved Leave Days</span>
+                <span className="text-[10px] text-rose-600 font-medium mt-0.5 block">Approved This Month</span>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">This Year</span>
-                <span className="text-xl font-extrabold font-mono text-slate-900 mt-1 block">
-                  {leaveSummary.totalLeaveDaysYear} Days
+              <div className="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-100">
+                <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block">Permission</span>
+                <span className="text-xl font-extrabold font-mono text-indigo-900 mt-1 block">
+                  {leaveSummary.approvedPermissionsMonth || 0}
                 </span>
-                <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">Total Approved Leaves</span>
+                <span className="text-[10px] text-indigo-600 font-medium mt-0.5 block">Approved This Month</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-teal-50/60 border border-teal-100">
+                <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wider block">WFO</span>
+                <span className="text-xl font-extrabold font-mono text-teal-900 mt-1 block">
+                  {leaveSummary.wfoCountMonth || 0} Days
+                </span>
+                <span className="text-[10px] text-teal-600 font-medium mt-0.5 block">Office Sign-ins This Month</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-100">
+                <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">WFH</span>
+                <span className="text-xl font-extrabold font-mono text-purple-900 mt-1 block">
+                  {leaveSummary.wfhCountMonth || 0} Days
+                </span>
+                <span className="text-[10px] text-purple-600 font-medium mt-0.5 block">Remote Sign-ins This Month</span>
               </div>
             </div>
           </div>

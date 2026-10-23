@@ -308,14 +308,36 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
             )}
             
             {status === 'CHECKED_OUT' && (
-              <div className="p-4 bg-slate-50 rounded-2xl text-center border border-slate-200/80">
-                <p className="text-sm font-bold text-slate-800 flex items-center justify-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  Work Day Completed
-                </p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Your attendance has been finalized for today. Total active work logged: <span className="font-bold text-slate-800">{formatDuration(attendance.totalWorkingSeconds)}</span>
-                </p>
+              <div className="p-4 bg-slate-50 rounded-2xl text-center border border-slate-200/80 space-y-4">
+                <div>
+                  <p className="text-sm font-bold text-slate-800 flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    Signed Out
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Total active work logged so far: <span className="font-bold text-slate-800">{formatDuration(attendance.totalWorkingSeconds)}</span>
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    onClick={() => handleCheckInClick('WFO')}
+                    disabled={loadingAction !== null}
+                    className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-sm rounded-xl shadow-glow-teal active:scale-[0.98] transition-all inline-flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
+                  >
+                    <Building2 className="w-4 h-4" />
+                    <span>{loadingAction === 'Sign In (WFO)' ? 'Signing In at Office...' : 'SIGN IN AGAIN (OFFICE)'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleCheckInClick('WFH')}
+                    disabled={loadingAction !== null}
+                    className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-sm rounded-xl shadow-md active:scale-[0.98] transition-all inline-flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
+                  >
+                    <Home className="w-4 h-4" />
+                    <span>{loadingAction === 'Sign In (WFH)' ? 'Signing In Remotely...' : 'SIGN IN AGAIN (HOME)'}</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { getTodayRange, calculateDurationSeconds, getISTTodayString, combineDateAndTimeToISTDate } from '../utils/time';
+import { getTodayRange, calculateDurationSeconds, getISTTodayString, combineDateAndTimeToISTDate, getISTMinutes } from '../utils/time';
 import { attendances, attendanceEvents, workSessions, users, settings, permissions, holidays, wfhDays } from '../mongo';
 import { calculateDistanceMeters } from '../utils/geo';
 
@@ -30,7 +30,7 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
     const { latitude, longitude, customTime, workMode: requestedWorkMode } = req.body;
     const now = new Date();
     const existing = await getTodayAttendance(employeeId);
-    if (existing) {
+    if (existing && existing.status !== 'CHECKED_OUT') {
       return res.status(400).json({ error: 'Already signed in today' });
     }
 
@@ -83,7 +83,9 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
     const currentSettings = await settings().findOne({});
     const geofenceEnabled = currentSettings?.geofenceEnabled !== false; // default enabled for backward compat
 
-    if ((workMode === 'WFO' || workMode === 'SSC') && geofenceEnabled) {
+    // Geofence is only enforced on the day's initial sign-in. A re-sign-in after an earlier
+    // check-out (e.g. signed out from office, signing in again later from home) skips it.
+    if (!existing && (workMode === 'WFO' || workMode === 'SSC') && geofenceEnabled) {
       const officeLoc = currentSettings?.officeLocation;
       const allowedRadius = (officeLoc && officeLoc.radiusMeters) ? Number(officeLoc.radiusMeters) : 500;
       if (officeLoc && officeLoc.latitude && officeLoc.longitude) {
@@ -117,30 +119,51 @@ router.post('/check-in', authenticateToken, async (req: AuthRequest, res: Respon
       locationData = { latitude: Number(latitude), longitude: Number(longitude) };
     }
 
-    // Create attendance record
-    const attendanceResult = await attendances().insertOne({
-      employeeId,
-      date: now,
-      checkIn: checkInTimestamp,
-      status: 'WORKING',
-      workMode,
-      location: locationData,
-      isGeofenceVerified: (workMode === 'WFO' || workMode === 'SSC') ? geofenceEnabled : false,
-      wfhApprovedFromRequest: !!approvedWfh,
-      totalWorkingSeconds: 0,
-      totalStoppedSeconds: 0,
-      isCustomSignIn: isCustomSignInRequested,
-    });
-    const attendanceId = attendanceResult.insertedId;
-    // Create initial event and work session
-    await attendanceEvents().insertOne({ 
-      attendanceId, 
-      employeeId, 
-      eventType: 'CHECK_IN', 
-      timestamp: checkInTimestamp,
-      location: locationData,
-    });
-    await workSessions().insertOne({ attendanceId, employeeId, startTime: checkInTimestamp });
+    let attendanceId;
+    if (existing) {
+      // Re-sign-in after an earlier check-out today: reopen the same day's attendance record
+      attendanceId = existing._id;
+      await attendances().updateOne(
+        { _id: attendanceId },
+        {
+          $set: { status: 'WORKING', workMode },
+          $unset: { checkOut: '' },
+        }
+      );
+      await attendanceEvents().insertOne({
+        attendanceId,
+        employeeId,
+        eventType: 'CHECK_IN',
+        timestamp: checkInTimestamp,
+        location: locationData,
+      });
+      await workSessions().insertOne({ attendanceId, employeeId, startTime: checkInTimestamp });
+    } else {
+      // Create attendance record
+      const attendanceResult = await attendances().insertOne({
+        employeeId,
+        date: now,
+        checkIn: checkInTimestamp,
+        status: 'WORKING',
+        workMode,
+        location: locationData,
+        isGeofenceVerified: (workMode === 'WFO' || workMode === 'SSC') ? geofenceEnabled : false,
+        wfhApprovedFromRequest: !!approvedWfh,
+        totalWorkingSeconds: 0,
+        totalStoppedSeconds: 0,
+        isCustomSignIn: isCustomSignInRequested,
+      });
+      attendanceId = attendanceResult.insertedId;
+      // Create initial event and work session
+      await attendanceEvents().insertOne({
+        attendanceId,
+        employeeId,
+        eventType: 'CHECK_IN',
+        timestamp: checkInTimestamp,
+        location: locationData,
+      });
+      await workSessions().insertOne({ attendanceId, employeeId, startTime: checkInTimestamp });
+    }
     // Update user status
     await users().updateOne({ employeeId }, { $set: { status: 'WORKING' } });
     const attendance = await getTodayAttendance(employeeId);
@@ -231,9 +254,27 @@ router.post('/check-out', authenticateToken, async (req: AuthRequest, res: Respo
       if (sessionDuration < 0) sessionDuration = 0;
       await workSessions().updateOne({ _id: activeSession._id }, { $set: { endTime: checkOutTimestamp, durationSeconds: sessionDuration } });
     }
+    // Auto-flag as Half Day Leave if this is the day's only sign-in session (no re-sign-in after an
+    // earlier check-out) and the final check-out happens after 8:00 PM IST. Employees who genuinely
+    // worked late can clear this via a regularization request to their reporting manager.
+    const LATE_CHECKOUT_THRESHOLD_MINUTES = 20 * 60; // 8:00 PM
+    const checkInEventCount = attendance.events.filter((e: any) => e.eventType === 'CHECK_IN').length;
+    const isSingleSessionDay = checkInEventCount <= 1;
+    const shouldFlagHalfDay = isSingleSessionDay && getISTMinutes(checkOutTimestamp) >= LATE_CHECKOUT_THRESHOLD_MINUTES;
+
+    const checkoutUpdate: any = {
+      status: 'CHECKED_OUT',
+      checkOut: checkOutTimestamp,
+    };
+    if (shouldFlagHalfDay) {
+      checkoutUpdate.isHalfDayFlagged = true;
+      checkoutUpdate.halfDayFlagReason = 'LATE_CHECKOUT';
+      checkoutUpdate.regularizationStatus = 'NONE';
+    }
+
     await attendances().updateOne(
       { _id: attendance._id },
-      { $set: { status: 'CHECKED_OUT', checkOut: checkOutTimestamp }, $inc: { totalWorkingSeconds: sessionDuration } }
+      { $set: checkoutUpdate, $inc: { totalWorkingSeconds: sessionDuration } }
     );
     await attendanceEvents().insertOne({ attendanceId: attendance._id, employeeId, eventType: 'CHECK_OUT', timestamp: checkOutTimestamp });
     await users().updateOne({ employeeId }, { $set: { status: 'CHECKED_OUT' } });
@@ -242,6 +283,148 @@ router.post('/check-out', authenticateToken, async (req: AuthRequest, res: Respo
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Check-out failed' });
+  }
+});
+
+// --- Submit a regularization request for a half-day-flagged attendance record ---
+router.post('/regularize/:attendanceId', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const employeeId = req.user!.employeeId;
+    const { remark } = req.body;
+    if (!remark || !String(remark).trim()) {
+      return res.status(400).json({ error: 'A remark explaining the late sign-out is required' });
+    }
+
+    const attendanceId = new ObjectId(String(req.params.attendanceId));
+    const attendance = await attendances().findOne({ _id: attendanceId, employeeId });
+    if (!attendance) {
+      return res.status(404).json({ error: 'Attendance record not found' });
+    }
+    if (!attendance.isHalfDayFlagged) {
+      return res.status(400).json({ error: 'This attendance record is not flagged as half day' });
+    }
+    if (attendance.regularizationStatus === 'PENDING') {
+      return res.status(400).json({ error: 'A regularization request is already pending for this day' });
+    }
+    if (attendance.regularizationStatus === 'APPROVED') {
+      return res.status(400).json({ error: 'This day has already been regularized' });
+    }
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const usedThisMonth = await attendances().countDocuments({
+      employeeId,
+      regularizationRequestedAt: { $gte: startOfMonth, $lte: endOfMonth },
+    });
+    if (usedThisMonth >= 3) {
+      return res.status(400).json({ error: 'Regularization limit reached (maximum 3 times per month)' });
+    }
+
+    const employee = await users().findOne({ employeeId });
+    let managerUserId: ObjectId | null = null;
+    let managerInfo: any = null;
+    if (employee?.reportingManagerId) {
+      try {
+        const mgr = await users().findOne({ _id: new ObjectId(String(employee.reportingManagerId)) });
+        if (mgr) {
+          managerUserId = mgr._id;
+          managerInfo = { id: mgr._id, name: mgr.name, employeeId: mgr.employeeId, email: mgr.email };
+        }
+      } catch (err) {
+        console.error('Error fetching reporting manager for regularization:', err);
+      }
+    }
+
+    await attendances().updateOne(
+      { _id: attendanceId },
+      {
+        $set: {
+          regularizationStatus: 'PENDING',
+          regularizationRemark: String(remark).trim(),
+          regularizationRequestedAt: now,
+          regularizationManagerUserId: managerUserId,
+          regularizationManagerInfo: managerInfo,
+        },
+      }
+    );
+
+    const updated = await attendances().findOne({ _id: attendanceId });
+    res.json({ message: 'Regularization request submitted successfully', attendance: updated });
+  } catch (error) {
+    console.error('Failed to submit regularization request:', error);
+    res.status(500).json({ error: 'Failed to submit regularization request' });
+  }
+});
+
+// --- Get regularization requests awaiting this manager's (or admin's) review ---
+router.get('/regularize/team', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const role = req.user!.role;
+    const filter: any = { regularizationStatus: { $in: ['PENDING', 'APPROVED', 'REJECTED'] } };
+    if (role !== 'ADMIN') {
+      filter.regularizationManagerUserId = new ObjectId(String(userId));
+    }
+    const records = await attendances()
+      .find(filter)
+      .sort({ regularizationRequestedAt: -1 })
+      .toArray();
+
+    const withEmployeeInfo = await Promise.all(
+      records.map(async (rec) => {
+        const emp = await users().findOne({ employeeId: rec.employeeId }, { projection: { name: 1, employeeId: 1, email: 1 } });
+        return { ...rec, employeeName: emp?.name || rec.employeeId, employeeEmail: emp?.email };
+      })
+    );
+    res.json(withEmployeeInfo);
+  } catch (error) {
+    console.error('Failed to fetch regularization requests:', error);
+    res.status(500).json({ error: 'Failed to fetch regularization requests' });
+  }
+});
+
+// --- Approve / Reject a regularization request (Reporting Manager or Admin) ---
+router.put('/regularize/:attendanceId/status', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const role = req.user!.role;
+    const { status, managerComment } = req.body;
+    if (!['APPROVED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be APPROVED or REJECTED' });
+    }
+
+    const attendanceId = new ObjectId(String(req.params.attendanceId));
+    const attendance = await attendances().findOne({ _id: attendanceId });
+    if (!attendance) {
+      return res.status(404).json({ error: 'Attendance record not found' });
+    }
+    if (attendance.regularizationStatus !== 'PENDING') {
+      return res.status(400).json({ error: 'This request is not pending review' });
+    }
+
+    const isManager = attendance.regularizationManagerUserId && attendance.regularizationManagerUserId.toString() === userId;
+    const isAdmin = role === 'ADMIN';
+    if (!isManager && !isAdmin) {
+      return res.status(403).json({ error: 'You are not authorized to review this request' });
+    }
+
+    const reviewer = await users().findOne({ _id: new ObjectId(userId) });
+    const updateFields: any = {
+      regularizationStatus: status,
+      regularizationManagerComment: managerComment || '',
+      regularizationReviewedAt: new Date(),
+      regularizationReviewedBy: { id: reviewer?._id, name: reviewer?.name, employeeId: reviewer?.employeeId },
+    };
+    if (status === 'APPROVED') {
+      updateFields.isHalfDayFlagged = false;
+    }
+
+    await attendances().updateOne({ _id: attendanceId }, { $set: updateFields });
+    res.json({ message: `Regularization request ${status.toLowerCase()} successfully` });
+  } catch (error) {
+    console.error('Failed to update regularization status:', error);
+    res.status(500).json({ error: 'Failed to update regularization status' });
   }
 });
 
@@ -493,12 +676,21 @@ router.get('/leave-summary', authenticateToken, async (req: AuthRequest, res: Re
 
     const currentMonthLeaves = approvedLeaves.filter(l => l.date && l.date.startsWith(`${currentYear}-${currentMonth}`));
 
+    const approvedPermissionsThisMonth = await permissions().countDocuments({
+      employeeId,
+      requestType: 'PERMISSION',
+      status: 'APPROVED',
+      date: { $regex: `^${currentYear}-${currentMonth}` },
+    });
+
     // Calculate Holidays Worked (attendance on holidays or Sundays)
     const allAttendance = await attendances().find({ employeeId }).toArray();
     const allHolidays = await holidays().find({}).toArray();
     const holidayDateMap = new Map(allHolidays.map(h => [h.date, h.name]));
 
     const holidaysWorkedList: any[] = [];
+    let wfoCountMonth = 0;
+    let wfhCountMonth = 0;
     for (const rec of allAttendance) {
       const recDate = new Date(rec.date);
       const yyyy = recDate.getFullYear();
@@ -517,11 +709,19 @@ router.get('/leave-summary', authenticateToken, async (req: AuthRequest, res: Re
           workingSeconds: rec.totalWorkingSeconds || 0,
         });
       }
+
+      if (yyyy === currentYear && mm === currentMonth) {
+        if (rec.workMode === 'WFH') wfhCountMonth++;
+        else if (rec.workMode === 'WFO') wfoCountMonth++;
+      }
     }
 
     res.json({
       totalLeaveDaysYear: approvedLeaves.length,
       totalLeaveDaysMonth: currentMonthLeaves.length,
+      approvedPermissionsMonth: approvedPermissionsThisMonth,
+      wfoCountMonth,
+      wfhCountMonth,
       approvedLeaves,
       holidaysWorkedCount: holidaysWorkedList.length,
       holidaysWorkedList,
