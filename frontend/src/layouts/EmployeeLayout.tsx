@@ -68,7 +68,7 @@ const EmployeeLayout = () => {
   const navItems = [
     { name: 'Attendance', path: '/employee', icon: Clock },
     { name: 'History', path: '/employee/attendance', icon: CalendarDays },
-    { name: 'Permissions', path: '/employee/permissions', icon: Clock4 },
+    { name: 'Requests Status', path: '/employee/permissions', icon: Clock4 },
   ];
 
   const BrandLogo = () => (

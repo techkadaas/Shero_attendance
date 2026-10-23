@@ -43,7 +43,10 @@ const EmployeeDashboard = () => {
       }
 
       const allHolidays = Array.isArray(holidayRes.data) ? holidayRes.data : (holidayRes.data?.holidays || []);
-      setHolidays(allHolidays.filter((h: any) => new Date(h.date + 'T00:00:00').getDay() !== 0));
+      const currentMonthStr = format(new Date(), 'yyyy-MM');
+      setHolidays(
+        allHolidays.filter((h: any) => new Date(h.date + 'T00:00:00').getDay() !== 0 && h.date?.startsWith(currentMonthStr))
+      );
       setLeaveSummary(leaveRes.data || { totalLeaveDaysYear: 0, totalLeaveDaysMonth: 0 });
     } catch (error) {
       console.error('Failed to fetch dashboard data', error);
@@ -235,11 +238,11 @@ const EmployeeDashboard = () => {
 
           {holidays.length === 0 ? (
             <div className="py-6 text-center text-xs text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-              No holidays listed at the moment.
+              No Shero Holidays this month.
             </div>
           ) : (
             <div className="space-y-2.5">
-              {holidays.slice(0, 4).map((h) => {
+              {holidays.map((h) => {
                 const d = new Date(h.date + 'T00:00:00');
                 return (
                   <div key={h._id || h.date} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 border border-slate-100 text-xs">
@@ -276,12 +279,6 @@ const EmployeeDashboard = () => {
                   <p className="text-[11px] text-slate-500">This month's leave, permission & work mode tracking</p>
                 </div>
               </div>
-              <Link
-                to="/employee/permissions"
-                className="text-xs font-bold text-teal-700 hover:text-teal-800"
-              >
-                Apply Leave
-              </Link>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
@@ -317,16 +314,6 @@ const EmployeeDashboard = () => {
                 <span className="text-[10px] text-purple-600 font-medium mt-0.5 block">Remote Sign-ins This Month</span>
               </div>
             </div>
-          </div>
-
-          <div className="pt-2">
-            <Link
-              to="/employee/permissions"
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <Clock4 className="w-3.5 h-3.5 text-teal-600" />
-              <span>Request Week Off, Leave, or WFH</span>
-            </Link>
           </div>
         </div>
 

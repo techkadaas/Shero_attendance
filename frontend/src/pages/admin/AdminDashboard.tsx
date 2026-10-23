@@ -146,7 +146,7 @@ const getStatusBadge = (status: string) => {
     case 'ABSENT':
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-          ON LEAVE / ABSENT
+          ON LEAVE
         </span>
       );
     default:
